@@ -32,21 +32,32 @@ stack_version: "8.15.2"
 1. Include this role in your playbook:
 
 ```yaml
-- hosts: servers
+---
+- hosts: localhost
+  connection: local
+  collections:
+    - community.general
+  become: yes
   roles:
-    - elastic-agent
+    - es-agent
 ```
 
-2. Run your playbook:
+2. Add inventory
+```
+[servers]
+localhost ansible_connection=local
+```
+
+3. Run your playbook (-v to run in verbose mode):
 
 ```
-ansible-playbook your-playbook.yml
+ansible-playbook -i inventory playbook.yml -v
 ```
 
 ## Role Structure
 
 ```
-elastic-agent/
+es-agent/
 ├── tasks/
 │   ├── main.yml
 │   ├── agent-setup-ubuntu.yml
