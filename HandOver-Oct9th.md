@@ -1,6 +1,6 @@
 # Handover document
 
-## Progress on Oct 8th
+## Progress on Oct 9th
 ### Successful tasks:
 * agent-ubuntu logs fix by changing end of line sequence to CRLF to LF
 * agent-debian logs are getting populated properly 
