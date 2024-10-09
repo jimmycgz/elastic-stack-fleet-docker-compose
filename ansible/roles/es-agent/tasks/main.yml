@@ -15,16 +15,12 @@
 
 - name: Parse agent token
   set_fact:
-    agent_token: "{{ enrollment_tokens.json | to_json | from_json | json_query(query) }}"
-  vars:
-    query: "list[?policy_id!='fleet-server-policy' && contains(name, 'Default')].api_key | [0]"
+    agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | selectattr('name', 'search', 'Default') | map(attribute='api_key') | list)[0] | default('') }}"
 
 - name: Parse any non-fleet-server token if default not found
   set_fact:
-    agent_token: "{{ enrollment_tokens.json | to_json | from_json | json_query(query) }}"
-  vars:
-    query: "list[?policy_id!='fleet-server-policy'].api_key | [0]"
-  when: agent_token is not defined or agent_token == ""
+    agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
+  when: not agent_token
 
 - name: Create new policy if not found
   block:

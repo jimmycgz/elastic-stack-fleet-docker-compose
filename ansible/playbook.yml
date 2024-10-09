@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  connection: local
+  collections:
+    - community.general
+  become: yes
+  roles:
+    - es-agent
