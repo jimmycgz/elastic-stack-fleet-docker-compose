@@ -232,6 +232,7 @@ services:
     command: >
       bash -c '
         chmod +x /agent-setup.sh &&
+        /agent-setup.sh &&
         sleep infinity
       '
     environment:
