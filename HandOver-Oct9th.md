@@ -3,10 +3,11 @@
 ## Progress on Oct 9th
 ### Successful tasks:
 * agent-ubuntu logs fix by changing end of line sequence to CRLF to LF
-* agent-debian logs are getting populated properly 
+* agent-debian logs are getting populated properly
+* Tested the ansible role with ubuntu and it is working, can see in kibana
 
 ### Need continue
-
+* Debian is unable to install elastic agent, need to fix that and ansible for debian correspondingly
 
 ## Development and Testing Process
 

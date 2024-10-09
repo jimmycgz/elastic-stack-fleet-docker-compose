@@ -240,6 +240,9 @@ services:
       - FLEET_HOST=${FLEET_HOST}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - KIBANA_FLEET_HOST=https://kib01:5601
+      - ELASTICSEARCH_HOST=https://es01:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
 
 volumes:
   certs:
