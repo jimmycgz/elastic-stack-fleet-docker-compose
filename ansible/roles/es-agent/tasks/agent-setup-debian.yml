@@ -1,0 +1,12 @@
+---
+# So far this file has same content as the ubuntu, later we can add different steps
+- name: Update apt cache (Debian)
+  apt:
+    update_cache: yes
+
+- name: Install dependencies (Debian)
+  apt:
+    name:
+      - curl
+      - jq
+    state: present

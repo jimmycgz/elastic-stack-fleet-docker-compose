@@ -1,0 +1,111 @@
+---
+- name: Include OS-specific setup tasks
+  include_tasks: "agent-setup-{{ ansible_distribution | lower }}.yml"
+
+- name: Fetch enrollment tokens
+  uri:
+    url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+    method: GET
+    user: elastic
+    password: "{{ elastic_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+    return_content: yes
+  register: enrollment_tokens
+
+- name: Parse agent token
+  set_fact:
+    agent_token: "{{ enrollment_tokens.json | to_json | from_json | json_query(query) }}"
+  vars:
+    query: "list[?policy_id!='fleet-server-policy' && contains(name, 'Default')].api_key | [0]"
+
+- name: Parse any non-fleet-server token if default not found
+  set_fact:
+    agent_token: "{{ enrollment_tokens.json | to_json | from_json | json_query(query) }}"
+  vars:
+    query: "list[?policy_id!='fleet-server-policy'].api_key | [0]"
+  when: agent_token is not defined or agent_token == ""
+
+- name: Create new policy if not found
+  block:
+    - name: Check for default policy
+      uri:
+        url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
+        method: GET
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+        return_content: yes
+      register: agent_policies
+
+    - name: Create new policy
+      uri:
+        url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
+        method: POST
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+        body_format: json
+        body:
+          name: "Default Policy"
+          namespace: "default"
+          description: "Default policy created by Ansible"
+          monitoring_enabled: ["logs", "metrics"]
+        return_content: yes
+      register: new_policy
+      when: agent_policies.json.items | selectattr('is_default', 'equalto', true) | list | length == 0
+
+    - name: Create new enrollment token
+      uri:
+        url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+        method: POST
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+        body_format: json
+        body:
+          policy_id: "{{ new_policy.json.item.id | default(agent_policies.json.items | selectattr('is_default', 'equalto', true) | map(attribute='id') | first) }}"
+        return_content: yes
+      register: new_token
+
+    - name: Set agent token from new token
+      set_fact:
+        agent_token: "{{ new_token.json.item.api_key }}"
+
+  when: agent_token is not defined or agent_token == ""
+
+- name: Download Elastic Agent
+  get_url:
+    url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+    dest: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+
+- name: Extract Elastic Agent
+  unarchive:
+    src: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+    dest: "/tmp/"
+    remote_src: yes
+
+- name: Install Elastic Agent
+  command:
+    cmd: >
+      ./elastic-agent install
+      --url={{ fleet_host }}
+      --enrollment-token={{ agent_token }}
+      --insecure
+      --non-interactive
+      --force
+  args:
+    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+
+- name: Clean up downloaded archive
+  file:
+    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+    state: absent
+
+- name: Clean up extracted directory
+  file:
+    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+    state: absent

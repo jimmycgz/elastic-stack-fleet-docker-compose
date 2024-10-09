@@ -1,0 +1,11 @@
+---
+- name: Update apt cache (Ubuntu)
+  apt:
+    update_cache: yes
+
+- name: Install dependencies (Ubuntu)
+  apt:
+    name:
+      - curl
+      - jq
+    state: present
