@@ -233,7 +233,10 @@ services:
       - ELASTICSEARCH_HOST=https://es01:9200
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
+      - ELASTIC_AGENT_INSTALL_OPTIONS=--non-interactive --force
     privileged: true
+    cap_add:
+    - SYS_ADMIN
 
 volumes:
   certs:

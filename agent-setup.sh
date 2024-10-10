@@ -42,6 +42,7 @@ fi
 echo "Parsing agent token..."
 AGENT_TOKEN=$(echo "${ENROLLMENT_TOKENS}" | jq -r '.list[] | select(.policy_id != "fleet-server-policy" and (.name | type=="string") and (.name | contains("Default"))) | .api_key' | head -n1)
 
+# If no default is there, we would get any non fleet server policy
 if [ -z "$AGENT_TOKEN" ]; then
     AGENT_TOKEN=$(echo "${ENROLLMENT_TOKENS}" | jq -r '.list[] | select(.policy_id != "fleet-server-policy") | .api_key' | head -n1)
 fi
@@ -94,12 +95,15 @@ export ENROLLMENT_TOKEN="${AGENT_TOKEN}"
 
 echo "Removing any existing Elastic Agent installation..."
 if [ -d "/opt/Elastic/Agent" ]; then
-    sudo rm -rf /opt/Elastic/Agent
+    rm -rf /opt/Elastic/Agent
 fi
+
+# need to add error handling
 
 # Download and install Elastic Agent
 echo "Downloading Elastic Agent..."
 if ! curl -L -O "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
+# if ! curl -L -O "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-${STACK_VERSION}-amd64.deb"; then
     echo "ERROR: Failed to download Elastic Agent."
     exit 1
 fi
@@ -110,13 +114,46 @@ if ! tar xzvf "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
     exit 1
 fi
 
-echo "Installing Elastic Agent..."
+echo "Enrolling and running Elastic Agent..."
 cd "elastic-agent-${STACK_VERSION}-linux-x86_64"
+cat > elastic-agent.yml << EOL
+outputs:
+  default:
+    type: elasticsearch
+    hosts: 
+      - ${ELASTICSEARCH_HOST}
+    username: ${ELASTICSEARCH_USERNAME}
+    password: ${ELASTIC_PASSWORD}
+    ssl.certificate_authorities: 
+      - /usr/share/elastic-agent/config/certs/ca/ca.crt
+
+agent:
+  logging:
+    to_files: true
+    files:
+      path: /var/log/elastic-agent
+      name: elastic-agent.log
+      keepfiles: 7
+      permissions: 0644
+  download:
+    sourceuri: "https://artifacts.elastic.co/downloads/"
+  ssl.ca_cert: /usr/share/elastic-agent/config/certs/ca/ca.crt
+
+providers:
+  provider:
+    type: "fleet"
+    url: "${FLEET_HOST}"
+    insecure: true
+    poll_timeout: 1m
+EOL
+
+echo "Installing Elastic Agent..."
 if ! ./elastic-agent install \
     --url="${FLEET_HOST}" \
     --enrollment-token="${ENROLLMENT_TOKEN}" \
     --insecure \
     --non-interactive \
+    --v \
     --force; then
     echo "ERROR: Failed to install Elastic Agent."
     exit 1
@@ -130,3 +167,24 @@ cd ..
 rm -rf "elastic-agent-${STACK_VERSION}-linux-x86_64" "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"
 
 echo "Elastic Agent setup completed successfully."
+
+echo "Starting Elastic Agent manually..."
+/opt/Elastic/Agent/elastic-agent run &
+
+# Keep the script running to keep the container alive
+tail -f /var/log/elastic-agent.log
+
+# Function to check if Elastic Agent is running
+is_agent_running() {
+    pgrep -f "/opt/Elastic/Agent/elastic-agent" > /dev/null
+}
+
+# Keep the container running and restart Elastic Agent if it stops
+echo "Entering main loop to keep container running and monitor Elastic Agent..."
+while true; do
+    if ! is_agent_running; then
+        echo "Elastic Agent is not running. Attempting to restart..."
+        /opt/Elastic/Agent/elastic-agent run &
+    fi
+    sleep 60
+done
