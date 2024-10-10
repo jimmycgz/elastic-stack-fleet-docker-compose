@@ -1,4 +1,4 @@
-kibana_fleet_host: "https://localhost:5601"
-fleet_host: "https://localhost:8220"
+kibana_fleet_host: "https://kib01:5601"
+fleet_host: "https://fleet:8220"
 elastic_password: "elastic"
 stack_version: "8.15.2"

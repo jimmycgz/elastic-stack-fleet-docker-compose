@@ -1,11 +1,14 @@
 ---
-- name: Update apt cache (Ubuntu)
-  apt:
-    update_cache: yes
 
-- name: Install dependencies (Ubuntu)
-  apt:
-    name:
-      - curl
-      - jq
-    state: present
+- name: Install Elastic Agent
+  command:
+    cmd: >
+      ./elastic-agent install
+      --url={{ fleet_host }}
+      --enrollment-token={{ agent_token }}
+      --insecure
+      --non-interactive
+      --force
+  args:
+    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+  become: yes

@@ -1,0 +1,17 @@
+all:
+  children:
+    elastic_agents:
+      hosts:
+        # agent-ubuntu:
+        #   ansible_connection: docker
+        #   ansible_python_interpreter: /usr/bin/python3
+        #   ansible_shell_executable: /bin/bash
+        #   ansible_host: agent-ubuntu
+        agent-debian:
+          ansible_connection: docker
+          ansible_python_interpreter: /usr/bin/python3
+          ansible_shell_executable: /bin/bash
+          ansible_host: agent-debian
+      vars:
+        ansible_user: root
+  vars:

@@ -1,6 +1,11 @@
 ---
-- name: Include OS-specific setup tasks
-  include_tasks: "agent-setup-{{ ansible_distribution | lower }}.yml"
+- name: Ensure required packages are installed
+  apt:
+    name:
+      - curl
+      - jq
+    state: present
+  become: yes
 
 - name: Fetch enrollment tokens
   uri:
@@ -11,6 +16,8 @@
     force_basic_auth: yes
     validate_certs: no
     return_content: yes
+    headers:
+      kbn-xsrf: "true"
   register: enrollment_tokens
 
 - name: Parse agent token
@@ -33,6 +40,8 @@
         force_basic_auth: yes
         validate_certs: no
         return_content: yes
+        headers:
+          kbn-xsrf: "true"
       register: agent_policies
 
     - name: Create new policy
@@ -50,8 +59,15 @@
           description: "Default policy created by Ansible"
           monitoring_enabled: ["logs", "metrics"]
         return_content: yes
+        headers:
+          kbn-xsrf: "true"
       register: new_policy
-      when: agent_policies.json.items | selectattr('is_default', 'equalto', true) | list | length == 0
+      when: policy_count == 0
+
+    - name: Debug new policy
+      debug:
+        var: new_policy
+      when: new_policy is changed          
 
     - name: Create new enrollment token
       uri:
@@ -63,14 +79,17 @@
         validate_certs: no
         body_format: json
         body:
-          policy_id: "{{ new_policy.json.item.id | default(agent_policies.json.items | selectattr('is_default', 'equalto', true) | map(attribute='id') | first) }}"
+          policy_id: "{{ new_policy.json.item.id | default(policy_items[0].id) if policy_items else '' }}"
         return_content: yes
+        headers:
+          kbn-xsrf: "true"
       register: new_token
+      when: policy_count | int > 0 and (new_policy is changed or agent_token == '')
 
     - name: Set agent token from new token
       set_fact:
         agent_token: "{{ new_token.json.item.api_key }}"
-
+      when: new_token is defined and new_token.json is defined
   when: agent_token is not defined or agent_token == ""
 
 - name: Download Elastic Agent
@@ -84,24 +103,11 @@
     dest: "/tmp/"
     remote_src: yes
 
-- name: Install Elastic Agent
-  command:
-    cmd: >
-      ./elastic-agent install
-      --url={{ fleet_host }}
-      --enrollment-token={{ agent_token }}
-      --insecure
-      --non-interactive
-      --force
-  args:
-    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+- name: Include OS-specific setup tasks
+  include_tasks: "agent-setup-{{ ansible_distribution | lower }}.yml"
 
 - name: Clean up downloaded archive
   file:
     path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
     state: absent
 
-- name: Clean up extracted directory
-  file:
-    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
-    state: absent

@@ -1,12 +1,42 @@
 ---
-# So far this file has same content as the ubuntu, later we can add different steps
-- name: Update apt cache (Debian)
-  apt:
-    update_cache: yes
+- name: Ensure destination directory exists
+  file:
+    path: /usr/share/elastic-agent
+    state: directory
+    mode: '0755'
+  become: yes
 
-- name: Install dependencies (Debian)
-  apt:
-    name:
-      - curl
-      - jq
-    state: present
+- name: Copy Elastic Agent files
+  command: cp -r /tmp/elastic-agent-{{ stack_version }}-linux-x86_64/* /usr/share/elastic-agent/
+  args:
+    creates: /usr/share/elastic-agent/elastic-agent
+  become: yes
+
+# - name: Create elastic-agent symlink
+#   file:
+#     src: /usr/share/elastic-agent/data/elastic-agent-621bbc/elastic-agent
+#     dest: /usr/share/elastic-agent/elastic-agent  # Assuming you're running this in the correct directory
+#     state: link
+#     owner: root
+#     group: root
+#     mode: '0777'  # This creates the lrwxrwxrwx permission
+
+- name: Create systemd service file
+  template:
+    src: elastic-agent.service.j2
+    dest: /etc/systemd/system/elastic-agent.service
+  become: yes
+
+- name: Enroll Elastic Agent
+  command:
+    cmd: "./elastic-agent enroll --url={{ fleet_host }} --enrollment-token={{ agent_token }} --insecure --force"
+    chdir: /usr/share/elastic-agent
+  become: yes
+
+- name: Start and enable Elastic Agent service
+  systemd:
+    name: elastic-agent
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes

@@ -1,8 +1,5 @@
 ---
-- hosts: localhost
-  connection: local
-  collections:
-    - community.general
-  become: yes
+- name: Install Elastic Agent
+  hosts: elastic_agents
   roles:
     - es-agent

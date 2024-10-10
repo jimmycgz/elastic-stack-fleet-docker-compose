@@ -1,0 +1,11 @@
+[Unit]
+Description=Elastic Agent
+After=network.target
+
+[Service]
+ExecStart=/usr/share/elastic-agent/elastic-agent run
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

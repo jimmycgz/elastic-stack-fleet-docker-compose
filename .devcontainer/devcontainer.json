@@ -6,5 +6,10 @@
       "ghcr.io/devcontainers/features/python:1": {}
     },
     "onCreateCommand": "pip3 install ansible-dev-tools; python3 -m pip install 'molecule-plugins[docker]'",
-    "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}"
+    "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
+    // "postCreateCommand": "sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates gnupg && echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && sudo apt-get update && sudo apt-get install -y google-cloud-sdk",
+    "postCreateCommand": "echo alias ll=\\'ls -alF\\' >> ~/.bash_aliases"
+    
+
+
 }
