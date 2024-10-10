@@ -103,7 +103,6 @@ fi
 # Download and install Elastic Agent
 echo "Downloading Elastic Agent..."
 if ! curl -L -O "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
-# if ! curl -L -O "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-${STACK_VERSION}-amd64.deb"; then
     echo "ERROR: Failed to download Elastic Agent."
     exit 1
 fi
@@ -114,8 +113,16 @@ if ! tar xzvf "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
     exit 1
 fi
 
-echo "Enrolling and running Elastic Agent..."
-cd "elastic-agent-${STACK_VERSION}-linux-x86_64"
+echo "Renaming Elastic Agent folder..."
+mkdir -p /opt/Elastic
+mv elastic-agent-${STACK_VERSION}-linux-x86_64 /opt/Elastic/Agent
+if [ ! -d "/opt/Elastic/Agent" ]; then
+    echo "ERROR: Failed to rename Elastic Agent folder."
+    exit 1
+fi
+
+echo "Creating elastic-agent.yml file"
+cd "/opt/Elastic/Agent"
 cat > elastic-agent.yml << EOL
 outputs:
   default:
@@ -156,6 +163,8 @@ if ! ./elastic-agent install \
     --v \
     --force; then
     echo "ERROR: Failed to install Elastic Agent."
+    echo "Starting Elastic Agent manually..."
+    tail -f /var/log/elastic-agent.log
     exit 1
 fi
 
