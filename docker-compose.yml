@@ -189,88 +189,29 @@ services:
       timeout: 10s
       retries: 120
 
-  # agent-ubuntu:
-  #   depends_on:
-  #     es01:
-  #       condition: service_healthy
-  #     kib01:
-  #       condition: service_healthy
-  #     fleet:
-  #       condition: service_healthy
-  #   image: ubuntu:20.04
-  #   volumes:
-  #     - certs:/usr/share/elastic-agent/config/certs
-  #   container_name: agent-ubuntu
-  #   # restart: always
-  #   command: >
-  #     bash -c '
-  #       apt-get update && 
-  #       apt-get install -y python3 && 
-  #       tail -f /dev/null
-  #     '
-  #   environment:
-  #     - STACK_VERSION=${STACK_VERSION}
-  #     - FLEET_HOST=${FLEET_HOST}
-  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-  #     - KIBANA_FLEET_HOST=https://kib01:5601
+  agent-ubuntu:
+    depends_on:
+      es01:
+        condition: service_healthy
+      kib01:
+        condition: service_healthy
+      fleet:
+        condition: service_healthy
+    image: ubuntu:20.04
+    volumes:
+      - certs:/usr/share/elastic-agent/config/certs
+      - ./agent-setup.sh:/agent-setup.sh
+    container_name: agent-ubuntu
+    # restart: always
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh"]
+    environment:
+      - STACK_VERSION=${STACK_VERSION}
+      - FLEET_HOST=${FLEET_HOST}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_FLEET_HOST=https://kib01:5601
+    privileged: true
 
-  # agent-debian:
-  #   depends_on:
-  #     es01:
-  #       condition: service_healthy
-  #     kib01:
-  #       condition: service_healthy
-  #     fleet:
-  #       condition: service_healthy
-  #   image: debian:11
-  #   volumes:
-  #     - certs:/usr/share/elastic-agent/config/certs
-  #     - ./agent-setup-debian.sh:/usr/share/agent-setup.sh
-  #   container_name: agent-debian
-  #   # restart: always
-  #   command: >
-  #     bash -c '
-  #       apt-get update && 
-  #       apt-get install -y python3 && 
-  #       tail -f /dev/null
-  #     '
-  #   environment:
-  #     - STACK_VERSION=${STACK_VERSION}
-  #     - FLEET_HOST=${FLEET_HOST}
-  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-  #     - KIBANA_FLEET_HOST=https://kib01:5601
-  #     - ELASTICSEARCH_HOST=https://es01:9200
-  #     - ELASTICSEARCH_USERNAME=elastic
-  #     - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-
-  # agent-ubuntu:
-  #   depends_on:
-  #     es01:
-  #       condition: service_healthy
-  #     kib01:
-  #       condition: service_healthy
-  #     fleet:
-  #       condition: service_healthy
-  #   image: ubuntu:20.04
-  #   volumes:
-  #     - certs:/usr/share/elastic-agent/config/certs
-  #     - ./agent-setup.sh:/agent-setup.sh
-  #   container_name: agent-ubuntu
-  #   # restart: always
-  #   command: >
-  #     bash -c '
-  #       chmod +x /agent-setup.sh &&
-  #       /agent-setup.sh &&
-  #       sleep infinity
-  #     '
-  #   environment:
-  #     - STACK_VERSION=${STACK_VERSION}
-  #     - FLEET_HOST=${FLEET_HOST}
-  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-  #     - KIBANA_FLEET_HOST=https://kib01:5601      
-
-
-  agent11:
+  agent-debian:
     depends_on:
       es01:
         condition: service_healthy
@@ -281,14 +222,9 @@ services:
     image: debian:11
     volumes:
       - certs:/usr/share/elastic-agent/config/certs
-      - ./agent-setup-debian.sh:/usr/share/agent-setup.sh
-    container_name: agent11
-    # restart: always
-    command: >
-      bash -c '
-        chmod +x /usr/share/agent-setup.sh &&
-        sleep infinity
-      '
+      - ./agent-setup.sh:/agent-setup.sh
+    container_name: agent-debian
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}
@@ -297,6 +233,7 @@ services:
       - ELASTICSEARCH_HOST=https://es01:9200
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
+    privileged: true
 
 volumes:
   certs:

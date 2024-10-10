@@ -92,6 +92,11 @@ fi
 echo "Agent Enrollment Token: ${AGENT_TOKEN}"
 export ENROLLMENT_TOKEN="${AGENT_TOKEN}"
 
+echo "Removing any existing Elastic Agent installation..."
+if [ -d "/opt/Elastic/Agent" ]; then
+    sudo rm -rf /opt/Elastic/Agent
+fi
+
 # Download and install Elastic Agent
 echo "Downloading Elastic Agent..."
 if ! curl -L -O "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
