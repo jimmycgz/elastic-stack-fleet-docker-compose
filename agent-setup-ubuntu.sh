@@ -106,18 +106,18 @@ fi
 
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 
-if ! ./elastic-agent install \
-    --url="${FLEET_HOST}" \
-    --enrollment-token="${ENROLLMENT_TOKEN}" \
-    --insecure \
-    --non-interactive \
-    --v \
-    --force; then
-    echo "ERROR: Failed to install Elastic Agent."
+# if ! ./elastic-agent install \
+#     --url="${FLEET_HOST}" \
+#     --enrollment-token="${ENROLLMENT_TOKEN}" \
+#     --insecure \
+#     --non-interactive \
+#     --v \
+#     --force; then
+#     echo "ERROR: Failed to install Elastic Agent."
 
-else
-    echo "Elastic Agent installed successfully."
-fi
+# fi
+
+echo "./elastic-agent install --url=\"${FLEET_HOST}\" --enrollment-token=\"${ENROLLMENT_TOKEN}\" --insecure --non-interactive --v -f"
 
 # Clean up
 echo "Cleaning up..."

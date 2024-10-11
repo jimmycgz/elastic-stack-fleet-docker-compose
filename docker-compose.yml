@@ -176,8 +176,8 @@ services:
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-
-      - FLEET_URL=${FLEET_URL}
+      - FLEET_URL=${FLEET_HOST}
+      - FLEET_HOST=${FLEET_HOST}
     healthcheck:
       test:
         [
@@ -202,7 +202,7 @@ services:
       - ./agent-setup-ubuntu.sh:/agent-setup.sh
     container_name: agent-ubuntu
     # restart: always
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep 9999"]
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep infinity"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}
@@ -223,7 +223,7 @@ services:
       - certs:/usr/share/elastic-agent/config/certs
       - ./agent-setup-debian.sh:/agent-setup.sh
     container_name: agent-debian
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep 3600"]
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep infinity"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}
