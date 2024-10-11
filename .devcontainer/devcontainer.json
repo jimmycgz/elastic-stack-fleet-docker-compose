@@ -6,20 +6,14 @@
     "ghcr.io/devcontainers/features/python:1": {}
   },
   "onCreateCommand": "pip3 install ansible-dev-tools; python3 -m pip install 'molecule-plugins[docker]'",
-  "postStartCommand": [
-    "git config --global --add safe.directory ${containerWorkspaceFolder}",
-    "echo 'alias ll=\"ls -alF\"' >> ~/.bashrc",
-    "echo 'alias dc=\"docker-compose\"' >> ~/.bashrc",
-    "echo 'alias dcdn=\"docker-compose down\"' >> ~/.bashrc",
-    "echo 'alias dcup=\"docker-compose up -d\"' >> ~/.bashrc",
-    "echo 'alias dcb=\"docker-compose build\"' >> ~/.bashrc",
-    "echo 'alias dk=\"docker\"' >> ~/.bashrc",
-    "echo 'alias dklo=\"docker logs\"' >> ~/.bashrc",
-    "echo 'alias dklof=\"docker logs -f\"' >> ~/.bashrc",
-    "echo 'alias dkps=\"docker ps\"' >> ~/.bashrc",
-    "echo 'alias dkpsa=\"docker ps -a\"' >> ~/.bashrc",
-    "echo 'alias dkrm=\"docker rm\"' >> ~/.bashrc",
-    "echo 'alias dkex=\"docker exec -it\"' >> ~/.bashrc"
-  ],
-  "postAttachCommand": "source ~/.bashrc"
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+  
+  // Add these lines to set CPU and RAM limits
+  "containerEnv": {
+    "DOCKER_DEFAULT_PLATFORM": "linux/amd64"
+  },
+  "runArgs": [
+    "--cpus=4",
+    "--memory=8g"
+  ]
 }
