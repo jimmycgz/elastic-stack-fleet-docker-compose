@@ -104,47 +104,15 @@ if ! tar xzvf "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
     # exit 1  # Commented out to avoid container exit
 fi
 
-export ELASTIC_CONF_FILE="elastic-agent.yml"
-echo "Generating config YAML for Elastic Agent..."
 
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 
 # generate the Elastic Agent configuration, can be used in debian with command ./elastic-agent run -c agent-config.yml > agent_debug.log 2>&1 &
-cat <<EOF > $ELASTIC_CONF_FILE
-outputs:
-  default:
-    type: elasticsearch
-    hosts: ["${ELASTICSEARCH_HOST}"]
-    username: "${ELASTICSEARCH_USERNAME}"
-    password: "${ELASTIC_PASSWORD}"
-    ssl.certificate_authorities: 
-      - ${ELASTICSEARCH_CA}
 
-agent:
-  logging:
-    level: ${LOG_LEVEL:-debug}
-    to_stderr: true
-    to_files: true
-    files:
-      path: ${ELASTIC_AGENT_PATH:-elastic-agent-${STACK_VERSION}-linux-x86_64}/logs
-      permissions: 0644
-  ssl.ca_cert: ${ELASTICSEARCH_CA}
-
-fleet:
-  enabled: true
-  access_api_key: "${ENROLLMENT_TOKEN}"
-  host: "${FLEET_HOST}"
-  url: "${FLEET_HOST}"
-  insecure: ${FLEET_INSECURE:-true}
-
-providers:
-  provider:
-    type: "fleet"
-EOF
 
 echo "Launching Elastic Agent in background..."
 # Run in background mode
-./elastic-agent run -c $ELASTIC_CONF_FILE > agent_debug.log 2>&1 &
+./elastic-agent run > agent_debug.log 2>&1 &
 
 echo "Enrolling Elastic Agent..."
 if ! ./elastic-agent enroll \
@@ -152,8 +120,7 @@ if ! ./elastic-agent enroll \
     --enrollment-token="${ENROLLMENT_TOKEN}" \
     --insecure \
     --v \
-    --force
-    -c $ELASTIC_CONF_FILE; then
+    --force; then
     echo "ERROR: Failed to enroll Elastic Agent."
 fi
 

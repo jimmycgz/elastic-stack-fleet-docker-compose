@@ -106,18 +106,20 @@ fi
 
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 
-# if ! ./elastic-agent install \
-#     --url="${FLEET_HOST}" \
-#     --enrollment-token="${ENROLLMENT_TOKEN}" \
-#     --insecure \
-#     --non-interactive \
-#     --v \
-#     --force; then
-#     echo "ERROR: Failed to install Elastic Agent."
+# For ubuntu, run install command on the tar folder, it will setup the service on /opt/Elastic/Agent folder
+if ! ./elastic-agent install \
+    --url="${FLEET_HOST}" \
+    --enrollment-token="${ENROLLMENT_TOKEN}" \
+    --insecure \
+    --non-interactive \
+    --v \
+    --force; then
+    echo "ERROR: Failed to install Elastic Agent."
 
-# fi
+fi
 
-echo "./elastic-agent install --url=\"${FLEET_HOST}\" --enrollment-token=\"${ENROLLMENT_TOKEN}\" --insecure --non-interactive --v -f"
+# for debug on terminal
+# echo "./elastic-agent install --url=\"${FLEET_HOST}\" --enrollment-token=\"${ENROLLMENT_TOKEN}\" --insecure --non-interactive --v -f"
 
 # Clean up
 echo "Cleaning up..."
@@ -125,3 +127,7 @@ echo "Cleaning up..."
 # rm -rf "elastic-agent-${STACK_VERSION}-linux-x86_64" "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"
 
 echo "Elastic Agent setup completed."
+
+cd /opt/Elastic/Agent
+./elastic-agent logs
+
