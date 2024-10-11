@@ -1,15 +1,29 @@
 {
-    "name": "Ubuntu",
-    "image": "mcr.microsoft.com/devcontainers/base:jammy",
-    "features": {
-      "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-      "ghcr.io/devcontainers/features/python:1": {}
-    },
-    "onCreateCommand": "pip3 install ansible-dev-tools; python3 -m pip install 'molecule-plugins[docker]'",
-    "postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}",
-    // "postCreateCommand": "sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates gnupg && echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && sudo apt-get update && sudo apt-get install -y google-cloud-sdk",
-    "postCreateCommand": "echo alias ll=\\'ls -alF\\' >> ~/.bash_aliases"
-    
+  "name": "Ubuntu",
+  "image": "mcr.microsoft.com/devcontainers/base:jammy",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/python:1": {}
+  },
+  "onCreateCommand": "pip3 install ansible-dev-tools; python3 -m pip install 'molecule-plugins[docker]'",
+      // "postCreateCommand": "sudo apt-get update && sudo apt-get install -y curl apt-transport-https ca-certificates gnupg && echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && sudo apt-get update && sudo apt-get install -y google-cloud-sdk",
 
+  "postStartCommand": [
+      "git config --global --add safe.directory ${containerWorkspaceFolder}",
+      "echo 'alias ll=\"ls -alF\"' >> ~/.bash_aliases",
+      "echo 'alias dc=\"docker-compose\"' >> ~/.bash_aliases",
+      "echo 'alias dcdn=\"docker-compose down\"' >> ~/.bash_aliases",
+      "echo 'alias dcup=\"docker-compose up -d\"' >> ~/.bash_aliases",
+      "echo 'alias dcb=\"docker-compose build\"' >> ~/.bash_aliases",
+      "echo 'alias dk=\"docker\"' >> ~/.bash_aliases",
+      "echo 'alias dklo=\"docker logs\"' >> ~/.bash_aliases",
+      "echo 'alias dklof=\"docker logs -f\"' >> ~/.bash_aliases",
+      "echo 'alias dkps=\"docker ps\"' >> ~/.bash_aliases",
+      "echo 'alias dkpsa=\"docker ps -a\"' >> ~/.bash_aliases",
+      "echo 'alias dkrm=\"docker rm\"' >> ~/.bash_aliases",
+      "echo 'alias dkex=\"docker exec -it\"' >> ~/.bash_aliases",
+      "source ~/.bash_aliases"
+  ],
+"postStartCommand": "git config --global --add safe.directory ${containerWorkspaceFolder}"
 
 }
