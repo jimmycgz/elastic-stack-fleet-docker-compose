@@ -175,21 +175,3 @@ echo "Cleaning up..."
 # rm -rf "elastic-agent-${STACK_VERSION}-linux-x86_64" "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"
 
 echo "Elastic Agent setup completed."
-
-# Create log directory if it doesn't exist
-# mkdir -p /var/log/elastic-agent
-
-# # Function to check if Elastic Agent is running
-# is_agent_running() {
-#     pgrep -f "/opt/Elastic/Agent/elastic-agent" > /dev/null
-# }
-
-# # Keep the container running and restart Elastic Agent if it stops
-# echo "Entering main loop to keep container running and monitor Elastic Agent..."
-# while true; do
-#     if ! is_agent_running; then
-#         echo "Elastic Agent is not running. Attempting to restart..."
-#         /opt/Elastic/Agent/elastic-agent run &
-#     fi
-#     sleep 60
-# done
