@@ -104,55 +104,6 @@ if ! tar xzvf "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
     # exit 1  # Commented out to avoid container exit
 fi
 
-# echo "Renaming Elastic Agent folder..."
-# mkdir -p /opt/Elastic
-
-# Remove existing symlink if it exists
-# if [ -L "/opt/Elastic/Agent/elastic-agent" ]; then
-#     rm /opt/Elastic/Agent/elastic-agent
-# fi
-
-# mv elastic-agent-${STACK_VERSION}-linux-x86_64 /opt/Elastic/Agent
-# if [ ! -d "/opt/Elastic/Agent" ]; then
-#     echo "ERROR: Failed to rename Elastic Agent folder."
-#     # exit 1  # Commented out to avoid container exit
-# fi
-
-# echo "Creating elastic-agent.yml file"
-# cd "/opt/Elastic/Agent"
-# cat > elastic-agent.yml << EOL
-# outputs:
-#   default:
-#     type: elasticsearch
-#     hosts: 
-#       - ${ELASTICSEARCH_HOST}
-#     username: ${ELASTICSEARCH_USERNAME}
-#     password: ${ELASTIC_PASSWORD}
-#     ssl.certificate_authorities: 
-#       - /usr/share/elastic-agent/config/certs/ca/ca.crt
-
-# agent:
-#   logging:
-#     to_files: true
-#     files:
-#       path: /var/log/elastic-agent
-#       name: elastic-agent.log
-#       keepfiles: 7
-#       permissions: 0644
-#   download:
-#     sourceuri: "https://artifacts.elastic.co/downloads/"
-#   ssl.ca_cert: /usr/share/elastic-agent/config/certs/ca/ca.crt
-
-# providers:
-#   provider:
-#     type: "fleet"
-#     url: "${FLEET_HOST}"
-#     insecure: true
-#     poll_timeout: 1m
-# EOL
-
-# echo "Installing Elastic Agent..."
-
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 
 if ! ./elastic-agent install \
@@ -163,8 +114,7 @@ if ! ./elastic-agent install \
     --v \
     --force; then
     echo "ERROR: Failed to install Elastic Agent."
-    # echo "Starting Elastic Agent manually..."
-    # ./elastic-agent run &
+
 else
     echo "Elastic Agent installed successfully."
 fi

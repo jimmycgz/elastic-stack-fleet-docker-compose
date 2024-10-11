@@ -133,8 +133,7 @@ services:
 
       - XPACK_FLEET_ENABLED=true
       - XPACK_FLEET_AGENTS_ENABLED=true
-      - XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=["${FLEET_HOST}"]
-
+      - XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=["${FLEET_URL}"]
       - ES_URL=${ES_URL}
 
     mem_limit: ${MEM_LIMIT}
@@ -200,7 +199,7 @@ services:
     image: ubuntu:20.04
     volumes:
       - certs:/usr/share/elastic-agent/config/certs
-      - ./agent-setup.sh:/agent-setup.sh
+      - ./agent-setup-ubuntu.sh:/agent-setup.sh
     container_name: agent-ubuntu
     # restart: always
     command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep 9999"]

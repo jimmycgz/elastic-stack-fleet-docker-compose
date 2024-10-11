@@ -1,3 +1,5 @@
+
+# generate the Elastic Agent configuration, can be used in debian with command ./elastic-agent run -c rendered_config.yml > agent_debug.log 2>&1 &
 cat <<EOF > rendered_config.yml
 outputs:
   default:
