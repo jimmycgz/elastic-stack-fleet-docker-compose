@@ -203,7 +203,7 @@ services:
       - ./agent-setup.sh:/agent-setup.sh
     container_name: agent-ubuntu
     # restart: always
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh"]
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && sleep 3600"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}
@@ -224,7 +224,7 @@ services:
       - certs:/usr/share/elastic-agent/config/certs
       - ./agent-setup.sh:/agent-setup.sh
     container_name: agent-debian
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh"]
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && sleep 3600"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}
