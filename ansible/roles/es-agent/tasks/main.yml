@@ -1,113 +1,134 @@
----
-- name: Ensure required packages are installed
-  apt:
-    name:
-      - curl
-      - jq
-    state: present
-  become: yes
+# ---
+# - name: Install dependencies
+#   apt:
+#     name: 
+#       - curl
+#       - jq
+#     state: present
+#     update_cache: yes
+#   become: yes
 
-- name: Fetch enrollment tokens
-  uri:
-    url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
-    method: GET
-    user: elastic
-    password: "{{ elastic_password }}"
-    force_basic_auth: yes
-    validate_certs: no
-    return_content: yes
-    headers:
-      kbn-xsrf: "true"
-  register: enrollment_tokens
+# - name: Fetch enrollment tokens
+#   uri:
+#     url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+#     method: GET
+#     user: elastic
+#     password: "{{ elastic_password }}"
+#     force_basic_auth: yes
+#     validate_certs: no
+#     return_content: yes
+#     headers:
+#       kbn-xsrf: "true"
+#   register: enrollment_tokens
 
-- name: Parse agent token
-  set_fact:
-    agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | selectattr('name', 'search', 'Default') | map(attribute='api_key') | list)[0] | default('') }}"
+# - name: Parse agent token
+#   set_fact:
+#     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | selectattr('name', 'search', 'Default') | map(attribute='api_key') | list)[0] | default('') }}"
 
-- name: Parse any non-fleet-server token if default not found
-  set_fact:
-    agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
-  when: not agent_token
+# - name: Parse any non-fleet-server token if default not found
+#   set_fact:
+#     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
+#   when: not agent_token
 
-- name: Create new policy if not found
-  block:
-    - name: Check for default policy
-      uri:
-        url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
-        method: GET
-        user: elastic
-        password: "{{ elastic_password }}"
-        force_basic_auth: yes
-        validate_certs: no
-        return_content: yes
-        headers:
-          kbn-xsrf: "true"
-      register: agent_policies
+# - name: Create new policy if not found
+#   block:
+#     - name: Create new policy
+#       uri:
+#         url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
+#         method: POST
+#         user: elastic
+#         password: "{{ elastic_password }}"
+#         force_basic_auth: yes
+#         validate_certs: no
+#         body_format: json
+#         body:
+#           name: "Default Policy"
+#           namespace: "default"
+#           description: "Default policy created by Ansible"
+#           monitoring_enabled: ["logs", "metrics"]
+#         headers:
+#           kbn-xsrf: "true"
+#       register: new_policy
 
-    - name: Create new policy
-      uri:
-        url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
-        method: POST
-        user: elastic
-        password: "{{ elastic_password }}"
-        force_basic_auth: yes
-        validate_certs: no
-        body_format: json
-        body:
-          name: "Default Policy"
-          namespace: "default"
-          description: "Default policy created by Ansible"
-          monitoring_enabled: ["logs", "metrics"]
-        return_content: yes
-        headers:
-          kbn-xsrf: "true"
-      register: new_policy
-      when: policy_count == 0
+#     - name: Create new enrollment token
+#       uri:
+#         url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+#         method: POST
+#         user: elastic
+#         password: "{{ elastic_password }}"
+#         force_basic_auth: yes
+#         validate_certs: no
+#         body_format: json
+#         body:
+#           policy_id: "{{ new_policy.json.item.id }}"
+#         headers:
+#           kbn-xsrf: "true"
+#       register: new_token
 
-    - name: Debug new policy
-      debug:
-        var: new_policy
-      when: new_policy is changed          
+#     - name: Set agent token from new token
+#       set_fact:
+#         agent_token: "{{ new_token.json.item.api_key }}"
+#   when: not agent_token
 
-    - name: Create new enrollment token
-      uri:
-        url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
-        method: POST
-        user: elastic
-        password: "{{ elastic_password }}"
-        force_basic_auth: yes
-        validate_certs: no
-        body_format: json
-        body:
-          policy_id: "{{ new_policy.json.item.id | default(policy_items[0].id) if policy_items else '' }}"
-        return_content: yes
-        headers:
-          kbn-xsrf: "true"
-      register: new_token
-      when: policy_count | int > 0 and (new_policy is changed or agent_token == '')
+# - name: Display Agent Enrollment Token
+#   debug:
+#     var: agent_token
 
-    - name: Set agent token from new token
-      set_fact:
-        agent_token: "{{ new_token.json.item.api_key }}"
-      when: new_token is defined and new_token.json is defined
-  when: agent_token is not defined or agent_token == ""
+# - name: Remove existing Elastic Agent installation
+#   file:
+#     path: /opt/Elastic/Agent
+#     state: absent
+#   become: yes
 
-- name: Download Elastic Agent
-  get_url:
-    url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-    dest: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+# - name: Download Elastic Agent
+#   get_url:
+#     url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#     dest: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#   become: yes
 
-- name: Extract Elastic Agent
-  unarchive:
-    src: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-    dest: "/tmp/"
-    remote_src: yes
+# - name: Extract Elastic Agent
+#   unarchive:
+#     src: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#     dest: "/tmp/"
+#     remote_src: yes
+#   become: yes
+
+# - name: Install Elastic Agent
+#   command:
+#     cmd: >
+#       ./elastic-agent install
+#       --url={{ fleet_host }}
+#       --enrollment-token={{ agent_token }}
+#       --insecure
+#       --non-interactive
+#       --force
+#   args:
+#     chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+#   register: install_result
+#   become: yes
+
+# - name: Display installation result
+#   debug:
+#     var: install_result
+
+# - name: Check if installation was successful
+#   fail:
+#     msg: "Failed to install Elastic Agent"
+#   when: install_result.rc != 0
+
+# - name: Clean up
+#   file:
+#     path: "{{ item }}"
+#     state: absent
+#   loop:
+#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#   become: yes
+
+# - name: Elastic Agent setup completed
+#   debug:
+#     msg: "Elastic Agent setup completed successfully"
+
 
 - name: Include OS-specific setup tasks
   include_tasks: "agent-setup-{{ ansible_distribution | lower }}.yml"
-
-- name: Clean up downloaded archive
-  file:
-    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-    state: absent
-

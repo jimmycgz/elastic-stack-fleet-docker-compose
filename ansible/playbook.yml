@@ -1,5 +1,34 @@
 ---
+- name: Ensure required collections are installed
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Install community.docker collection
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection install community.docker
+      changed_when: false
+
+- name: Prepare Docker containers
+  hosts: elastic_agents
+  gather_facts: false
+  tasks:
+    - name: Install Python3
+      raw: |
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update && apt-get install -y python3
+        elif command -v yum >/dev/null 2>&1; then
+          yum install -y python3
+        else
+          echo "Unsupported package manager"
+          exit 1
+        fi
+      args:
+        executable: /bin/sh
+
 - name: Install Elastic Agent
   hosts: elastic_agents
+  vars:
+    ansible_remote_tmp: /tmp/.ansible
   roles:
     - es-agent

@@ -104,6 +104,19 @@ if ! tar xzvf "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
     # exit 1  # Commented out to avoid container exit
 fi
 
+if [ -f /etc/debian_version ] && command -v systemctl &> /dev/null; then
+    echo "Debian-based system with systemd detected. Enabling and starting Elastic Agent service..."
+    if sudo systemctl enable elastic-agent && sudo systemctl start elastic-agent; then
+        echo "Elastic Agent service enabled and started successfully."
+    else
+        echo "ERROR: Failed to enable or start Elastic Agent service."
+    fi
+else
+    echo "Launching Elastic Agent in background..."
+    # Run in background mode
+    ./elastic-agent run > agent_debug.log 2>&1 &
+fi
+
 
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 
