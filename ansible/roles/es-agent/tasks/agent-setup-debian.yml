@@ -1,38 +1,11 @@
 ---
-# - name: Check required variables
-#   assert:
-#     that:
-#       - kibana_fleet_host is defined
-#       - fleet_host is defined
-#       - elastic_password is defined
-#       - stack_version is defined
-#     fail_msg: "Required variables are not set. Please set KIBANA_FLEET_HOST, FLEET_HOST, ELASTIC_PASSWORD, and STACK_VERSION."
-
-# - name: Detect OS
-#   command: cat /etc/os-release
-#   register: os_release
-#   changed_when: false
-
-# - name: Set OS facts
-#   set_fact:
-#     os_name: "{{ os_release.stdout | regex_search('NAME=\"(.*)\"', '\\1') | first }}"
-#     os_version: "{{ os_release.stdout | regex_search('VERSION_ID=\"(.*)\"', '\\1') | first }}"
-
-# - name: Display detected OS
-#   debug:
-#     msg: "Detected OS: {{ os_name }} {{ os_version }}"
-
-- name: Update apt cache
-  apt:
-    update_cache: yes
-  become: yes
-
 - name: Install dependencies
   apt:
-    name:
+    name: 
       - curl
       - jq
     state: present
+    update_cache: yes
   become: yes
 
 - name: Fetch enrollment tokens
@@ -51,6 +24,11 @@
 - name: Parse agent token
   set_fact:
     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | selectattr('name', 'search', 'Default') | map(attribute='api_key') | list)[0] | default('') }}"
+
+- name: Parse any non-fleet-server token if default not found
+  set_fact:
+    agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
+  when: not agent_token
 
 - name: Create new policy if not found
   block:
@@ -96,18 +74,11 @@
   debug:
     var: agent_token
 
-- name: Remove existing Elastic Agent installation
-  file:
-    path: /opt/Elastic/Agent
-    state: absent
-  become: yes
-
-- name: Ensure Elastic Agent directory exists
-  file:
-    path: /opt/Elastic/Agent
-    state: directory
-    mode: '0755'
-  become: yes
+# - name: Remove existing Elastic Agent installation
+#   file:
+#     path: /opt/Elastic/Agent
+#     state: absent
+#   become: yes
 
 - name: Download Elastic Agent
   get_url:
@@ -118,38 +89,59 @@
 - name: Extract Elastic Agent
   unarchive:
     src: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-    dest: "/opt/Elastic/Agent"
+    dest: "/tmp/"
     remote_src: yes
-    extra_opts: [--strip-components=1]
   become: yes
 
-- name: Clean up downloaded archive
-  file:
-    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-    state: absent
-  become: yes
+- name: Check if systemd is available
+  command: systemctl --version
+  register: systemd_check
+  ignore_errors: yes
 
-- name: Configure and start Elastic Agent
+- name: Start Elastic Agent (with systemd)
   block:
-    - name: Install Elastic Agent
-      command:
-        cmd: >
-          ./elastic-agent install
-          --url={{ fleet_host }}
-          --enrollment-token={{ agent_token }}
-          --non-interactive
-          --insecure
-          --force
-      args:
-        chdir: /opt/Elastic/Agent
-      become: yes
 
-    - name: Enable and start Elastic Agent service
+
+    - name: Enable and start Elastic Agent service (with systemd)
       systemd:
         name: elastic-agent
         enabled: yes
         state: started
       become: yes
+  when: systemd_check.rc == 0
+
+- name: Run Elastic Agent (without systemd)
+  block:
+    - name: Run Elastic Agent in background (without systemd)
+      shell: >
+        ./elastic-agent run > agent_debug.log 2>&1 &
+      args:
+        chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+      async: 45
+      poll: 0
+      become: yes
+  when: systemd_check.rc != 0
+
+- name: Enroll Elastic Agent
+  command:
+    cmd: >
+      ./elastic-agent enroll
+      --url={{ fleet_host }}
+      --enrollment-token={{ agent_token }}
+      --insecure
+      --v
+      --force
+  args:
+    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+  become: yes
+
+# - name: Clean up
+#   file:
+#     path: "{{ item }}"
+#     state: absent
+#   loop:
+#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#   become: yes
 
 - name: Elastic Agent setup completed
   debug:

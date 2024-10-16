@@ -113,11 +113,3 @@ es-agent/
 ## Testing
 
 This role was developed and tested using a Docker Compose environment to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
-
-## Contributing
-
-Contributions to improve the role are welcome. Please submit pull requests or open issues on the project repository.
-
-## License
-
-[Specify your license here]

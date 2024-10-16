@@ -8,11 +8,11 @@ all:
           ansible_shell_executable: /bin/bash
           ansible_host: agent-ubuntu2
           ansible_remote_tmp: /tmp/.ansible
-        # agent-debian:
-        #   ansible_connection: community.docker.docker
-        #   ansible_python_interpreter: /usr/bin/python3
-        #   ansible_shell_executable: /bin/bash
-        #   ansible_host: agent-debian
-        #   ansible_remote_tmp: /tmp/.ansible
+        agent-debian2:
+          ansible_connection: community.docker.docker
+          ansible_python_interpreter: /usr/bin/python3
+          ansible_shell_executable: /bin/bash
+          ansible_host: agent-debian2
+          ansible_remote_tmp: /tmp/.ansible
       vars:
         ansible_user: root
