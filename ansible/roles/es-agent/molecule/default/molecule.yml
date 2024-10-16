@@ -9,16 +9,39 @@ platforms:
     command: ${MOLECULE_DOCKER_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - name: elastic-stack-fleet-docker-compose_default
     cgroupns_mode: host
     privileged: true
     pre_build_image: true
-    published_ports:
-      - "15601:1080"
-      - "18220:1080"
+    extra_hosts:
+      - "elastic-stack-fleet-docker-compose-kib01-1:172.19.0.4"
+      - "elastic-stack-fleet-docker-compose-es01-1:172.19.0.3"
+      - "fleet:172.19.0.2"
+    # published_ports:
+    #   - "15601:1080"
+    #   - "18220:1080"      
+
 provisioner:
   name: ansible
-  log: true
   env:
-    ANSIBLE_REMOTE_TMP: /tmp/.ansible
+    ANSIBLE_REMOTE_TMP: /tmp/.ansible  
+    KIBANA_FLEET_HOST: "https://elastic-stack-fleet-docker-compose-kib01-1:5601"
+    FLEET_HOST: "https://fleet:8220"
+    ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+    KIBANA_PASSWORD: "${KIBANA_PASSWORD}"
+    STACK_VERSION: "${STACK_VERSION}"
+  inventory:
+    group_vars:
+      all:
+        kibana_fleet_host: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}"
+        fleet_host: "{{ lookup('env', 'FLEET_HOST') }}"
+        elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') }}"
+        stack_version: "{{ lookup('env', 'STACK_VERSION') }}"
+  playbooks:
+    converge: converge.yml      
+
 verifier:
   name: ansible

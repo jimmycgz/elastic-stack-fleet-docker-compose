@@ -2,12 +2,12 @@
 - name: Converge
   hosts: all
   vars:
-    ansible_distribution: "{{ ansible_distribution | default('Ubuntu') }}"
-    ansible_distribution_release: "{{ ansible_distribution_release | default('focal') }}"
-    stack_version: "8.7.0"
-    kibana_fleet_host: "http://localhost:15601"
-    elastic_password: "mockpassword"
-    fleet_host: "http://localhost:18220"
+    # ansible_distribution: "{{ ansible_distribution | default('Ubuntu') }}"
+    # ansible_distribution_release: "{{ ansible_distribution_release | default('focal') }}"
+    # stack_version: "8.7.0"
+    # kibana_fleet_host: "http://localhost:15601"
+    # elastic_password: "mockpassword"
+    # fleet_host: "http://localhost:18220"
   tasks:
     - name: Debug variables before role inclusion
       debug:
@@ -16,7 +16,17 @@
           - "elastic_password before role: {{ elastic_password }}"
           - "fleet_host before role: {{ fleet_host }}"
 
-    - name: "Include es-agent"
+    # - name: Update hosts file, to resolve ELK endpoints managed by docker compose 
+    #   become: yes
+    #   lineinfile:
+    #     path: /etc/hosts
+    #     line: "{{ item }}"
+    #   loop:
+    #     - "172.19.0.4 elastic-stack-fleet-docker-compose-kib01-1"
+    #     - "172.19.0.3 elastic-stack-fleet-docker-compose-es01-1"
+    #     - "172.19.0.2 fleet"          
+
+    - name: "Include es-agent role"
       include_role:
         name: "es-agent"
 
