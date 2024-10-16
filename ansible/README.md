@@ -73,6 +73,7 @@ ansible-galaxy install -r requirements.yml
 es-agent/
 ├── tasks/
 │   ├── main.yml
+│   ├── agent-setup-common.yml
 │   ├── agent-setup-ubuntu.yml
 │   └── agent-setup-debian.yml
 ├── templates/
@@ -83,6 +84,7 @@ es-agent/
 ```
 
 - `main.yml`: Primary task file that orchestrates the installation process
+- `agent-setup-common.yml`: Common tasks to add ES agent to the fleet
 - `agent-setup-ubuntu.yml`: Ubuntu-specific setup tasks
 - `agent-setup-debian.yml`: Debian-specific setup tasks
 - `vars/main.yml`: Variable definitions for the role
@@ -92,7 +94,7 @@ es-agent/
 1. The role first performs common tasks like installing dependencies and fetching enrollment tokens.
 2. It then detects the target system's distribution (Ubuntu or Debian) and includes the appropriate setup file.
 3. For Ubuntu, it uses the built-in `install` command of the Elastic Agent.
-4. For Debian, it performs a more manual installation, including setting up a systemd service.
+4. For Debian, it goes manual `enroll` steps, including setting up a systemd service.
 
 ## Customization
 
@@ -110,6 +112,8 @@ es-agent/
 - Verify that the provided URLs and credentials in `vars/main.yml` are correct.
 - Ensure your Elastic Stack is properly set up and accessible from the target systems.
 
-## Testing
+## [WIP] Testing
 
-This role was developed and tested using a Docker Compose environment to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
+This role was developed and tested via Ansible playook targeting a Docker Compose environment to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
+
+Molecule configuration is still WIP.
