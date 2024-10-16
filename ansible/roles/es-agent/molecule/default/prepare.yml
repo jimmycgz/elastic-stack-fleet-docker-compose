@@ -1,0 +1,96 @@
+---
+- name: Prepare
+  hosts: all
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      become: true
+
+    - name: Install necessary packages
+      apt:
+        name: 
+          - curl
+          - python3-pip
+          - python3-setuptools
+          - python3-wheel
+        state: present
+      become: true
+
+    - name: Install Flask
+      pip:
+        name: flask
+      become: true
+
+    - name: Create mock server script
+      copy:
+        content: |
+          from flask import Flask, jsonify, request
+          
+          app = Flask(__name__)
+          
+          @app.route('/api/fleet/enrollment-api-keys', methods=['GET'])
+          def mock_enrollment_api_keys():
+              auth = request.authorization
+              if not auth or auth.username != 'elastic' or auth.password != 'mockpassword':
+                  return ('Unauthorized', 401)
+              
+              return jsonify({
+                  "list": [
+                      {
+                          "id": "test-id",
+                          "name": "Default",
+                          "api_key": "test-api-key",
+                          "policy_id": "test-policy-id"
+                      }
+                  ]
+              })
+          
+          if __name__ == '__main__':
+              app.run(host='0.0.0.0', port=1080)
+        dest: /tmp/mock_server.py
+      become: true
+
+    - name: Start mock server
+      shell: nohup python3 /tmp/mock_server.py > /tmp/mock_server.log 2>&1 & echo $! > /tmp/mock_server.pid
+      async: 45
+      poll: 0
+      become: true
+
+    - name: Wait for mock server to be ready
+      wait_for:
+        port: 1080
+        timeout: 30
+
+    - name: Display mock server log
+      command: cat /tmp/mock_server.log
+      register: mock_server_log
+
+    - name: Print mock server log
+      debug:
+        var: mock_server_log.stdout_lines
+
+    - name: Check if mock server is running
+      command: pgrep -f "python3 /tmp/mock_server.py"
+      register: pgrep_result
+      ignore_errors: yes
+
+    - name: Print process ID
+      debug:
+        var: pgrep_result.stdout_lines
+
+    - name: Test mock server
+      uri:
+        url: "http://localhost:1080/api/fleet/enrollment-api-keys"
+        method: GET
+        user: elastic
+        password: mockpassword
+        force_basic_auth: yes
+        validate_certs: no
+        return_content: yes
+      register: mock_test_result
+      ignore_errors: yes
+
+    - name: Print mock test result
+      debug:
+        var: mock_test_result
