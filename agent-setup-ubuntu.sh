@@ -120,8 +120,6 @@ else
 fi
 
 # Clean up
-echo "Cleaning up..."
+# echo "Cleaning up..."
 # cd ..
 # rm -rf "elastic-agent-${STACK_VERSION}-linux-x86_64" "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"
-
-echo "Elastic Agent setup completed."

@@ -211,6 +211,28 @@ services:
       - KIBANA_FLEET_HOST=https://kib01:5601
     privileged: true
 
+  agent-ubuntu2:
+    depends_on:
+      es01:
+        condition: service_healthy
+      kib01:
+        condition: service_healthy
+      fleet:
+        condition: service_healthy
+    image: ubuntu:20.04
+    volumes:
+      - certs:/usr/share/elastic-agent/config/certs
+      - ./agent-setup-ubuntu.sh:/agent-setup.sh
+    container_name: agent-ubuntu2
+    # restart: always
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && sleep infinity"]
+    environment:
+      - STACK_VERSION=${STACK_VERSION}
+      - FLEET_HOST=${FLEET_HOST}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_FLEET_HOST=https://kib01:5601
+    privileged: true
+
   agent-debian:
     depends_on:
       es01:
