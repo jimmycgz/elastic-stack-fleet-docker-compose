@@ -1,6 +1,6 @@
 ---
 - name: Include common setup tasks
-  include_tasks: common.yml
+  include_tasks: agent-setup-common.yml
 
 - name: Include OS-specific setup tasks
   include_tasks: "agent-setup-{{ ansible_distribution | lower }}.yml"
