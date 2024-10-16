@@ -1,0 +1,20 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check if Elastic Agent is installed
+      command: elastic-agent version
+      register: agent_version
+      changed_when: false
+
+    - name: Display Elastic Agent version
+      debug:
+        var: agent_version.stdout
+
+    - name: Assert Elastic Agent is installed
+      assert:
+        that:
+          - "'elastic-agent version' in agent_version.stdout"
+        fail_msg: "Elastic Agent is not installed properly"
+        success_msg: "Elastic Agent is installed and running"

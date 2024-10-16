@@ -6,7 +6,7 @@
 **Highlight:** We don't need to rewrite the `elastic-agent.yml` because everything should be managed by the fleet, eg: the es host may not be https://es01:9200 for the agent, instead, should be localhost.
 
 * **agent-ubuntu:** Fine tuned the bash script, can start updating the ansible role after testing on VMs.
-* ** agent-debian:** Successfully enrolled from the tar extract folder, don't need install, just need to start the agent service at background model before enrollment.
+* **agent-debian:** Successfully enrolled from the tar extract folder, don't need install, just need to start the agent service at background mode before enrollment.
 
 ### Need continue
 * Continue test on VMs
