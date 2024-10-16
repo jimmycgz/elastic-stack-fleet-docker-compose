@@ -31,6 +31,16 @@ stack_version: "8.15.2"
 
 ## Usage
 
+0. Initial setup
+* Install Python packages (requirements.txt) at the root folder of ansible playbook:
+```
+pip install -r requirements.txt
+```
+If needed, install Ansible collections and roles:
+```
+ansible-galaxy install -r requirements.yml
+```
+
 1. Include this role in your playbook:
 
    ```yaml
@@ -54,7 +64,7 @@ stack_version: "8.15.2"
 3. Run your playbook (-v to run in verbose mode):
 
    ```
-   ansible-playbook -i inventory playbook.yml -v
+   ansible-playbook -i inventory.yml playbook.yml -v
    ```
 
 ## Role Structure
@@ -103,11 +113,3 @@ es-agent/
 ## Testing
 
 This role was developed and tested using a Docker Compose environment to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
-
-## Contributing
-
-Contributions to improve the role are welcome. Please submit pull requests or open issues on the project repository.
-
-## License
-
-[Specify your license here]

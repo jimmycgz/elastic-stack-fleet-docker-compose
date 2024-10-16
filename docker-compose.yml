@@ -1,6 +1,7 @@
 services:
   setup:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    platform: linux/amd64
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     user: "0"
@@ -134,7 +135,6 @@ services:
       - XPACK_FLEET_ENABLED=true
       - XPACK_FLEET_AGENTS_ENABLED=true
       - XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=["${FLEET_HOST}"]
-
       - ES_URL=${ES_URL}
 
     mem_limit: ${MEM_LIMIT}
@@ -177,8 +177,8 @@ services:
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-
-      - FLEET_URL=${FLEET_URL}
+      - FLEET_URL=${FLEET_HOST}
+      - FLEET_HOST=${FLEET_HOST}
     healthcheck:
       test:
         [
@@ -189,7 +189,29 @@ services:
       timeout: 10s
       retries: 120
 
-  agent-ubuntu:
+  # agent-ubuntu:
+  #   depends_on:
+  #     es01:
+  #       condition: service_healthy
+  #     kib01:
+  #       condition: service_healthy
+  #     fleet:
+  #       condition: service_healthy
+  #   image: ubuntu:20.04
+  #   volumes:
+  #     - certs:/usr/share/elastic-agent/config/certs
+  #     - ./agent-setup-ubuntu.sh:/agent-setup.sh
+  #   container_name: agent-ubuntu
+  #   # restart: always
+  #   command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep infinity"]
+  #   environment:
+  #     - STACK_VERSION=${STACK_VERSION}
+  #     - FLEET_HOST=${FLEET_HOST}
+  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+  #     - KIBANA_FLEET_HOST=https://kib01:5601
+  #   privileged: true
+
+  agent-ubuntu2:
     depends_on:
       es01:
         condition: service_healthy
@@ -200,10 +222,10 @@ services:
     image: ubuntu:20.04
     volumes:
       - certs:/usr/share/elastic-agent/config/certs
-      - ./agent-setup.sh:/agent-setup.sh
-    container_name: agent-ubuntu
+      - ./agent-setup-ubuntu.sh:/agent-setup.sh
+    container_name: agent-ubuntu2
     # restart: always
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh"]
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && sleep infinity"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}
@@ -211,7 +233,34 @@ services:
       - KIBANA_FLEET_HOST=https://kib01:5601
     privileged: true
 
-  agent-debian:
+  # agent-debian:
+  #   depends_on:
+  #     es01:
+  #       condition: service_healthy
+  #     kib01:
+  #       condition: service_healthy
+  #     fleet:
+  #       condition: service_healthy
+  #   image: debian:11
+  #   volumes:
+  #     - certs:/usr/share/elastic-agent/config/certs
+  #     - ./agent-setup-debian.sh:/agent-setup.sh
+  #   container_name: agent-debian
+  #   command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep infinity"]
+  #   environment:
+  #     - STACK_VERSION=${STACK_VERSION}
+  #     - FLEET_HOST=${FLEET_HOST}
+  #     - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+  #     - KIBANA_FLEET_HOST=https://kib01:5601
+  #     - ELASTICSEARCH_HOST=https://es01:9200
+  #     - ELASTICSEARCH_USERNAME=elastic
+  #     - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
+  #     - ELASTIC_AGENT_INSTALL_OPTIONS=--non-interactive --force
+  #   privileged: true
+  #   cap_add:
+  #   - SYS_ADMIN
+
+  agent-debian2:
     depends_on:
       es01:
         condition: service_healthy
@@ -222,9 +271,9 @@ services:
     image: debian:11
     volumes:
       - certs:/usr/share/elastic-agent/config/certs
-      - ./agent-setup.sh:/agent-setup.sh
-    container_name: agent-debian
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh"]
+      - ./agent-setup-debian.sh:/agent-setup.sh
+    container_name: agent-debian2
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && sleep infinity"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}

@@ -121,6 +121,21 @@ tar xzvf elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 ./elastic-agent install --url=${FLEET_HOST} --enrollment-token=${ENROLLMENT_TOKEN}
 
+# For Debian, the install will throw error so use entrol instead
+if ! ./elastic-agent enroll \
+    --url="${FLEET_HOST}" \
+    --enrollment-token="${ENROLLMENT_TOKEN}" \
+    --insecure \
+    --v \
+    --force; then
+    echo "ERROR: Failed to install Elastic Agent."
+    # echo "Starting Elastic Agent manually..."
+    # ./elastic-agent run &
+else
+    echo "Elastic Agent installed successfully."
+fi
+
+
 # For Debian, you could use the deb package as below, but it's recommended using the above TAR format which supports upgrade via the console.
 curl -L -O https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-${STACK_VERSION}-amd64.deb
 sudo dpkg -i elastic-agent-${STACK_VERSION}-amd64.deb

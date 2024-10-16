@@ -104,44 +104,22 @@ if ! tar xzvf "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"; then
     # exit 1  # Commented out to avoid container exit
 fi
 
-if [ -f /etc/debian_version ] && command -v systemctl &> /dev/null; then
-    echo "Debian-based system with systemd detected. Enabling and starting Elastic Agent service..."
-    if sudo systemctl enable elastic-agent && sudo systemctl start elastic-agent; then
-        echo "Elastic Agent service enabled and started successfully."
-    else
-        echo "ERROR: Failed to enable or start Elastic Agent service."
-    fi
-else
-    echo "Launching Elastic Agent in background..."
-    # Run in background mode
-    ./elastic-agent run > agent_debug.log 2>&1 &
-fi
-
-
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
 
-# generate the Elastic Agent configuration, can be used in debian with command ./elastic-agent run -c agent-config.yml > agent_debug.log 2>&1 &
-
-
-echo "Launching Elastic Agent in background..."
-# Run in background mode
-./elastic-agent run > agent_debug.log 2>&1 &
-
-echo "Enrolling Elastic Agent..."
-if ! ./elastic-agent enroll \
+if ! ./elastic-agent install \
     --url="${FLEET_HOST}" \
     --enrollment-token="${ENROLLMENT_TOKEN}" \
     --insecure \
+    --non-interactive \
     --v \
     --force; then
-    echo "ERROR: Failed to enroll Elastic Agent."
+    echo "ERROR: Failed to install Elastic Agent."
+
+else
+    echo "Elastic Agent installed successfully."
 fi
 
 # Clean up
-echo "Cleaning up..."
+# echo "Cleaning up..."
 # cd ..
 # rm -rf "elastic-agent-${STACK_VERSION}-linux-x86_64" "elastic-agent-${STACK_VERSION}-linux-x86_64.tar.gz"
-
-echo "Elastic Agent setup completed."
-
-./elastic-agent logs

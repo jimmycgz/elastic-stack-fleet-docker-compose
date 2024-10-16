@@ -1,42 +1,148 @@
 ---
-- name: Ensure destination directory exists
-  file:
-    path: /usr/share/elastic-agent
-    state: directory
-    mode: '0755'
-  become: yes
+# - name: Install dependencies
+#   apt:
+#     name: 
+#       - curl
+#       - jq
+#     state: present
+#     update_cache: yes
+#   become: yes
 
-- name: Copy Elastic Agent files
-  command: cp -r /tmp/elastic-agent-{{ stack_version }}-linux-x86_64/* /usr/share/elastic-agent/
-  args:
-    creates: /usr/share/elastic-agent/elastic-agent
-  become: yes
+# - name: Fetch enrollment tokens
+#   uri:
+#     url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+#     method: GET
+#     user: elastic
+#     password: "{{ elastic_password }}"
+#     force_basic_auth: yes
+#     validate_certs: no
+#     return_content: yes
+#     headers:
+#       kbn-xsrf: "true"
+#   register: enrollment_tokens
 
-# - name: Create elastic-agent symlink
-#   file:
-#     src: /usr/share/elastic-agent/data/elastic-agent-621bbc/elastic-agent
-#     dest: /usr/share/elastic-agent/elastic-agent  # Assuming you're running this in the correct directory
-#     state: link
-#     owner: root
-#     group: root
-#     mode: '0777'  # This creates the lrwxrwxrwx permission
+# - name: Parse agent token
+#   set_fact:
+#     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | selectattr('name', 'search', 'Default') | map(attribute='api_key') | list)[0] | default('') }}"
 
-- name: Create systemd service file
-  template:
-    src: elastic-agent.service.j2
-    dest: /etc/systemd/system/elastic-agent.service
-  become: yes
+# - name: Parse any non-fleet-server token if default not found
+#   set_fact:
+#     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
+#   when: not agent_token
+
+# - name: Create new policy if not found
+#   block:
+#     - name: Create new policy
+#       uri:
+#         url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
+#         method: POST
+#         user: elastic
+#         password: "{{ elastic_password }}"
+#         force_basic_auth: yes
+#         validate_certs: no
+#         body_format: json
+#         body:
+#           name: "Default Policy"
+#           namespace: "default"
+#           description: "Default policy created by Ansible"
+#           monitoring_enabled: ["logs", "metrics"]
+#         headers:
+#           kbn-xsrf: "true"
+#       register: new_policy
+
+#     - name: Create new enrollment token
+#       uri:
+#         url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+#         method: POST
+#         user: elastic
+#         password: "{{ elastic_password }}"
+#         force_basic_auth: yes
+#         validate_certs: no
+#         body_format: json
+#         body:
+#           policy_id: "{{ new_policy.json.item.id }}"
+#         headers:
+#           kbn-xsrf: "true"
+#       register: new_token
+
+#     - name: Set agent token from new token
+#       set_fact:
+#         agent_token: "{{ new_token.json.item.api_key }}"
+#   when: not agent_token
+
+# - name: Display Agent Enrollment Token
+#   debug:
+#     var: agent_token
+
+# # - name: Remove existing Elastic Agent installation
+# #   file:
+# #     path: /opt/Elastic/Agent
+# #     state: absent
+# #   become: yes
+
+# - name: Download Elastic Agent
+#   get_url:
+#     url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#     dest: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#   become: yes
+
+# - name: Extract Elastic Agent
+#   unarchive:
+#     src: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#     dest: "/tmp/"
+#     remote_src: yes
+#   become: yes
+
+- name: Check if systemd is available
+  command: systemctl --version
+  register: systemd_check
+  ignore_errors: yes
+
+- name: Start Elastic Agent (with systemd)
+  block:
+
+
+    - name: Enable and start Elastic Agent service (with systemd)
+      systemd:
+        name: elastic-agent
+        enabled: yes
+        state: started
+      become: yes
+  when: systemd_check.rc == 0
+
+- name: Run Elastic Agent (without systemd)
+  block:
+    - name: Run Elastic Agent in background (without systemd)
+      shell: >
+        ./elastic-agent run > agent_debug.log 2>&1 &
+      args:
+        chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+      async: 45
+      poll: 0
+      become: yes
+  when: systemd_check.rc != 0
 
 - name: Enroll Elastic Agent
   command:
-    cmd: "./elastic-agent enroll --url={{ fleet_host }} --enrollment-token={{ agent_token }} --insecure --force"
-    chdir: /usr/share/elastic-agent
+    cmd: >
+      ./elastic-agent enroll
+      --url={{ fleet_host }}
+      --enrollment-token={{ agent_token }}
+      --insecure
+      --v
+      --force
+  args:
+    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
   become: yes
 
-- name: Start and enable Elastic Agent service
-  systemd:
-    name: elastic-agent
-    state: started
-    enabled: yes
-    daemon_reload: yes
-  become: yes
+# - name: Clean up
+#   file:
+#     path: "{{ item }}"
+#     state: absent
+#   loop:
+#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
+#   become: yes
+
+# - name: Elastic Agent setup completed
+#   debug:
+#     msg: "Elastic Agent setup completed successfully"
