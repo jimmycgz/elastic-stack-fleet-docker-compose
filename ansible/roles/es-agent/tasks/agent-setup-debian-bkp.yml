@@ -1,27 +1,4 @@
 ---
-# - name: Check required variables
-#   assert:
-#     that:
-#       - kibana_fleet_host is defined
-#       - fleet_host is defined
-#       - elastic_password is defined
-#       - stack_version is defined
-#     fail_msg: "Required variables are not set. Please set KIBANA_FLEET_HOST, FLEET_HOST, ELASTIC_PASSWORD, and STACK_VERSION."
-
-# - name: Detect OS
-#   command: cat /etc/os-release
-#   register: os_release
-#   changed_when: false
-
-# - name: Set OS facts
-#   set_fact:
-#     os_name: "{{ os_release.stdout | regex_search('NAME=\"(.*)\"', '\\1') | first }}"
-#     os_version: "{{ os_release.stdout | regex_search('VERSION_ID=\"(.*)\"', '\\1') | first }}"
-
-# - name: Display detected OS
-#   debug:
-#     msg: "Detected OS: {{ os_name }} {{ os_version }}"
-
 - name: Update apt cache
   apt:
     update_cache: yes
