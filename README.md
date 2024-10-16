@@ -9,9 +9,21 @@ This setup runs ES, Kibana and Fleet server in docker-compose, is suitable for f
 * Config GUI (https://localhost:5601/app/fleet/agents) with full security turned on that supports Kibana alerts. 
 * When starting docker-compose, it will gradually start ES with Kibana, then will bring up Fleet server and register it with Kibana. 
 
+## Quick Test
 
+All variables got pre-defined values, so simply follow below steps to test the Role by Ansible playbook. Or find below section `Detailed Setup` for more information.
 
-## Setup
+1. Download the repo and go with main branch, start DevContainer
+1. At root folder, spin up the ELK stack ``` docker compose up -d```
+1. Login Kibana UI via https://localhost:5601, user/password: elastic/elastic
+1. Check the new agent added to the fleet via the Kib UI
+1. Goto ansible folder, test the role with command 
+```
+pip install -r requirements.txt
+ansible-playbook -i inventory.yml playbook.yml -v
+```
+
+## Detailed Setup
 The current setup is specifying ES and Fleet server endpoints as `localhost`. It is possible to change it to the real hostname of the server in the `.env` file.
 
 ```bash
@@ -36,14 +48,15 @@ Creating fleet                  ... done
 ```
 ## Validate the services
 Once the stack is up, validate the following services and connections
-* Test ES: From the fleet container run below command lines
+* Attach to the Fleet container
 ```
-apt update
-apt install curl
-
+docker exec -it fleet bash
+```
+* Inside the fleet container run below command line
+```
 curl -s --cacert config/certs/ca/ca.crt https://es01:9200
 ```
-You should see the message like below if ES is working.
+You should see the message like below which shows ES is working.
 ```
 root@6c5b8e6af16d:/usr/share/elastic-agent# curl -s --cacert config/certs/ca/ca.crt https://es01:9200
 {"error":{"root_cause":[{"type":"security_exception","reason":"missing authentication credentials for REST request [/]","header":{"WWW-Authenticate":["Basic realm=\"security\", charset=\"UTF-8\"","Bearer realm=\"security\"","ApiKey"]}}],"type":"security_exception","reason":"missing authentication credentials for REST request [/]","header":{"WWW-Authenticate":["Basic realm=\"security\", charset=\"UTF-8\"","Bearer realm=\"security\"","ApiKey"]}},"status":401}root@6c5b8e6af16d:/usr/share/elastic-agent#
