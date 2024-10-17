@@ -132,10 +132,15 @@
     url: "{{ elastic_agent.download_url }}"
     dest: "{{ elastic_agent.archive_path }}"
   become: yes
+  register: elastic_agent_download
+  until: elastic_agent_download is succeeded
+  retries: 3
+  delay: 5
 
 - name: Extract Elastic Agent
   unarchive:
     src: "{{ elastic_agent.archive_path }}"
     dest: "/tmp/"
     remote_src: yes
+    creates: "{{ elastic_agent.install_dir }}"
   become: yes

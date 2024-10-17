@@ -4,7 +4,9 @@
   gather_facts: false
   tasks:
     - name: Check if Elastic Agent is installed
-      command: elastic-agent version
+      command: ./elastic-agent version
+      args:
+        chdir: "elastic-agent-{{ stack_version }}-linux-x86_64"
       register: agent_version
       changed_when: false
 
