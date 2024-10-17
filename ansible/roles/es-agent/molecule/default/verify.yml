@@ -33,9 +33,9 @@
     - name: Assert Elastic Agent is installed
       assert:
         that:
-          - "'elastic-agent version' in agent_version.stdout"
+          - stack_version in agent_version.stdout
         fail_msg: "Elastic Agent is not installed properly on {{ ansible_distribution }}"
-        success_msg: "Elastic Agent is installed and running on {{ ansible_distribution }}"
+        success_msg: "Elastic Agent Version {{ stack_version }}  is installed and running on {{ ansible_distribution }}"
 
     - name: Display error if agent not found
       debug:
