@@ -28,13 +28,6 @@
     msg: "Failed to install Elastic Agent"
   when: install_result.rc is defined and install_result.rc != 0
 
-- name: Start Elastic Agent service
-  systemd:
-    name: elastic-agent
-    state: started
-    enabled: yes
-  become: yes
-
 # - name: Clean up
 #   file:
 #     path: "{{ item }}"

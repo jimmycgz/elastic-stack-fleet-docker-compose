@@ -1,14 +1,30 @@
 ---
 - name: Verify
   hosts: all
-  gather_facts: false
   tasks:
-    - name: Check if Elastic Agent is installed
-      command: ./elastic-agent version
-      args:
-        chdir: "elastic-agent-{{ stack_version }}-linux-x86_64"
-      register: agent_version
+    - name: Include default vars
+      ansible.builtin.include_vars:
+        dir: '{{ lookup("env", "MOLECULE_PROJECT_DIRECTORY") }}/vars/'
+        extensions:
+          - 'yml'
+
+    - name: Check if Elastic Agent is installed (Debian)
+      command: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64/elastic-agent version"
+      register: debian_agent_version
       changed_when: false
+      when: ansible_distribution == 'Debian'
+      ignore_errors: yes
+
+    - name: Check if Elastic Agent is installed (Ubuntu)
+      command: "/usr/bin/elastic-agent version"
+      register: ubuntu_agent_version
+      changed_when: false
+      when: ansible_distribution == 'Ubuntu'
+      ignore_errors: yes
+
+    - name: Set agent version variable
+      set_fact:
+        agent_version: "{{ debian_agent_version if ansible_distribution == 'Debian' else ubuntu_agent_version }}"
 
     - name: Display Elastic Agent version
       debug:
@@ -18,5 +34,10 @@
       assert:
         that:
           - "'elastic-agent version' in agent_version.stdout"
-        fail_msg: "Elastic Agent is not installed properly"
-        success_msg: "Elastic Agent is installed and running"
+        fail_msg: "Elastic Agent is not installed properly on {{ ansible_distribution }}"
+        success_msg: "Elastic Agent is installed and running on {{ ansible_distribution }}"
+
+    - name: Display error if agent not found
+      debug:
+        msg: "Elastic Agent not found at expected path for {{ ansible_distribution }}"
+      when: agent_version.rc is defined and agent_version.rc != 0
