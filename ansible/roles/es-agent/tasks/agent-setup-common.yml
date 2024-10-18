@@ -8,6 +8,43 @@
       install_dir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
       archive_path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
 
+# Pre check
+- name: Ensure required variables are set
+  assert:
+    that:
+      - kibana_fleet_host is defined
+      - elastic_password is defined
+      - fleet_host is defined
+      - stack_version is defined
+    fail_msg: "One or more required variables are not set"
+
+- name: Debug connection information
+  debug:
+    msg: 
+      - "Attempting to connect to Kibana at: {{ kibana_fleet_host }}"
+      - "Fleet host is set to: {{ fleet_host }}"
+
+- name: Check Kibana connectivity
+  uri:
+    url: "{{ kibana_fleet_host }}/api/status"
+    method: GET
+    validate_certs: no
+  register: kibana_status
+  ignore_errors: yes
+
+- name: Display Kibana connectivity result
+  debug:
+    var: kibana_status
+
+- name: Debug kibana_fleet_host
+  debug:
+    var: kibana_fleet_host
+
+- name: Fail if Kibana is not reachable
+  fail:
+    msg: "Unable to connect to Kibana at {{ kibana_fleet_host }}. Please check the URL and ensure Kibana is running and accessible."
+  when: kibana_status is failed
+
 # Common tasks
 - name: Install dependencies
   apt:
@@ -18,10 +55,6 @@
     update_cache: yes
   become: yes
 
-- name: Debug kibana_fleet_host
-  debug:
-    var: kibana_fleet_host
-  
 - name: Fetch enrollment tokens
   uri:
     url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
@@ -99,10 +132,15 @@
     url: "{{ elastic_agent.download_url }}"
     dest: "{{ elastic_agent.archive_path }}"
   become: yes
+  register: elastic_agent_download
+  until: elastic_agent_download is succeeded
+  retries: 3
+  delay: 5
 
 - name: Extract Elastic Agent
   unarchive:
     src: "{{ elastic_agent.archive_path }}"
     dest: "/tmp/"
     remote_src: yes
+    creates: "{{ elastic_agent.install_dir }}"
   become: yes

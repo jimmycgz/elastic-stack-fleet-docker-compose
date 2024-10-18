@@ -1,0 +1,18 @@
+---
+- name: Prepare
+  hosts: all
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      become: true
+
+    - name: Install necessary packages
+      apt:
+        name: 
+          - curl
+          - python3-pip
+          - python3-setuptools
+          - python3-wheel
+        state: present
+      become: true

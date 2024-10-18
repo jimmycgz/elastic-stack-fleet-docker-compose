@@ -1,24 +1,17 @@
 ---
 - name: Converge
   hosts: all
-  vars:
-    ansible_distribution: "{{ ansible_distribution | default('Ubuntu') }}"
-    ansible_distribution_release: "{{ ansible_distribution_release | default('focal') }}"
-    stack_version: "8.7.0"
-    kibana_fleet_host: "http://localhost:15601"
-    elastic_password: "mockpassword"
-    fleet_host: "http://localhost:18220"
   tasks:
     - name: Debug variables before role inclusion
       debug:
         msg: 
           - "kibana_fleet_host before role: {{ kibana_fleet_host }}"
           - "elastic_password before role: {{ elastic_password }}"
-          - "fleet_host before role: {{ fleet_host }}"
+          - "fleet_host before role: {{ fleet_host }}"     
 
-    - name: "Include es-agent"
+    - name: "Include es-agent role"
       include_role:
-        name: "es-agent"
+        name: "../../roles/es-agent"
 
     - name: Debug variables after role inclusion
       debug:

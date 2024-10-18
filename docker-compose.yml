@@ -225,7 +225,7 @@ services:
       - ./agent-setup-ubuntu.sh:/agent-setup.sh
     container_name: agent-ubuntu2
     # restart: always
-    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && sleep infinity"]
+    command: ["/bin/bash", "-c", "chmod +x /agent-setup.sh && /agent-setup.sh && sleep infinity"]
     environment:
       - STACK_VERSION=${STACK_VERSION}
       - FLEET_HOST=${FLEET_HOST}

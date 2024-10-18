@@ -1,114 +1,9 @@
 ---
-# - name: Install dependencies
-#   apt:
-#     name: 
-#       - curl
-#       - jq
-#     state: present
-#     update_cache: yes
-#   become: yes
-
-# - name: Fetch enrollment tokens
-#   uri:
-#     url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
-#     method: GET
-#     user: elastic
-#     password: "{{ elastic_password }}"
-#     force_basic_auth: yes
-#     validate_certs: no
-#     return_content: yes
-#     headers:
-#       kbn-xsrf: "true"
-#   register: enrollment_tokens
-
-# - name: Parse agent token
-#   set_fact:
-#     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | selectattr('name', 'search', 'Default') | map(attribute='api_key') | list)[0] | default('') }}"
-
-# - name: Parse any non-fleet-server token if default not found
-#   set_fact:
-#     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
-#   when: not agent_token
-
-# - name: Create new policy if not found
-#   block:
-#     - name: Create new policy
-#       uri:
-#         url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
-#         method: POST
-#         user: elastic
-#         password: "{{ elastic_password }}"
-#         force_basic_auth: yes
-#         validate_certs: no
-#         body_format: json
-#         body:
-#           name: "Default Policy"
-#           namespace: "default"
-#           description: "Default policy created by Ansible"
-#           monitoring_enabled: ["logs", "metrics"]
-#         headers:
-#           kbn-xsrf: "true"
-#       register: new_policy
-
-#     - name: Create new enrollment token
-#       uri:
-#         url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
-#         method: POST
-#         user: elastic
-#         password: "{{ elastic_password }}"
-#         force_basic_auth: yes
-#         validate_certs: no
-#         body_format: json
-#         body:
-#           policy_id: "{{ new_policy.json.item.id }}"
-#         headers:
-#           kbn-xsrf: "true"
-#       register: new_token
-
-#     - name: Set agent token from new token
-#       set_fact:
-#         agent_token: "{{ new_token.json.item.api_key }}"
-#   when: not agent_token
-
-# - name: Display Agent Enrollment Token
-#   debug:
-#     var: agent_token
-
-# # - name: Remove existing Elastic Agent installation
-# #   file:
-# #     path: /opt/Elastic/Agent
-# #     state: absent
-# #   become: yes
-
-# - name: Download Elastic Agent
-#   get_url:
-#     url: "https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#     dest: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#   become: yes
-
-# - name: Extract Elastic Agent
-#   unarchive:
-#     src: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#     dest: "/tmp/"
-#     remote_src: yes
-#   become: yes
-
-- name: Check if systemd is available
-  command: systemctl --version
-  register: systemd_check
-  ignore_errors: yes
-
-- name: Start Elastic Agent (with systemd)
-  block:
-
-
-    - name: Enable and start Elastic Agent service (with systemd)
-      systemd:
-        name: elastic-agent
-        enabled: yes
-        state: started
-      become: yes
-  when: systemd_check.rc == 0
+- name: Check if Elastic Agent is already running
+  shell: ps aux | grep -v grep | grep "elastic-agent run"
+  register: elastic_agent_process
+  changed_when: false
+  failed_when: false
 
 - name: Run Elastic Agent (without systemd)
   block:
@@ -120,7 +15,14 @@
       async: 45
       poll: 0
       become: yes
-  when: systemd_check.rc != 0
+      register: elastic_agent_run
+      when: elastic_agent_process.rc != 0
+      until: elastic_agent_run is succeeded
+
+- name: Check if Elastic Agent is already enrolled
+  stat:
+    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64/elastic-agent.yml"
+  register: elastic_agent_config
 
 - name: Enroll Elastic Agent
   command:
@@ -134,6 +36,7 @@
   args:
     chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
   become: yes
+  when: not elastic_agent_config.stat.exists
 
 # - name: Clean up
 #   file:

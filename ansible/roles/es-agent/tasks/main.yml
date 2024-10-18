@@ -5,17 +5,17 @@
 - name: Include OS-specific setup tasks
   include_tasks: "agent-setup-{{ ansible_distribution | lower }}.yml"
 
-- name: Perform common post-installation tasks
-  block:
-    - name: Clean up
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ elastic_agent.install_dir }}"
-        - "{{ elastic_agent.archive_path }}"
-      become: yes
+# - name: Perform common post-installation tasks
+#   block:
+#     - name: Clean up
+#       file:
+#         path: "{{ item }}"
+#         state: absent
+#       loop:
+#         - "{{ elastic_agent.install_dir }}"
+#         - "{{ elastic_agent.archive_path }}"
+#       become: yes
 
-    - name: Elastic Agent setup completed
-      debug:
-        msg: "Elastic Agent setup completed successfully"
+#     - name: Elastic Agent setup completed
+#       debug:
+#         msg: "Elastic Agent setup completed successfully"
