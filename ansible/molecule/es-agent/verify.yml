@@ -4,7 +4,7 @@
   tasks:
     - name: Include default vars
       ansible.builtin.include_vars:
-        dir: '{{ lookup("env", "MOLECULE_PROJECT_DIRECTORY") }}/vars/'
+        dir: '{{ lookup("env", "MOLECULE_PROJECT_DIRECTORY") }}/roles/es-agent/vars/'
         extensions:
           - 'yml'
 
