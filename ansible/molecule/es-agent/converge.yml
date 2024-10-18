@@ -1,0 +1,21 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Debug variables before role inclusion
+      debug:
+        msg: 
+          - "kibana_fleet_host before role: {{ kibana_fleet_host }}"
+          - "elastic_password before role: {{ elastic_password }}"
+          - "fleet_host before role: {{ fleet_host }}"     
+
+    - name: "Include es-agent role"
+      include_role:
+        name: "../../roles/es-agent"
+
+    - name: Debug variables after role inclusion
+      debug:
+        msg: 
+          - "kibana_fleet_host after role: {{ kibana_fleet_host }}"
+          - "elastic_password after role: {{ elastic_password }}"
+          - "fleet_host after role: {{ fleet_host }}"

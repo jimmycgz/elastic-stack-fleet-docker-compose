@@ -19,9 +19,6 @@ platforms:
       - "elastic-stack-fleet-docker-compose-kib01-1:172.19.0.4"
       - "elastic-stack-fleet-docker-compose-es01-1:172.19.0.3"
       - "fleet:172.19.0.2"
-    # published_ports:
-    #   - "15601:1080"
-    #   - "18220:1080"      
 
   - name: ag-debian
     image: geerlingguy/docker-${MOLECULE_DISTRO:-debian11}-ansible:latest
