@@ -5,9 +5,9 @@ set -eo pipefail
 echo "Starting Elastic Agent setup..."
 
 # Check for required environment variables
-if [ -z "$KIBANA_FLEET_HOST" ] || [ -z "$FLEET_HOST" ] || [ -z "$ELASTIC_PASSWORD" ] || [ -z "$STACK_VERSION" ]; then
+if [ -z "$KIBANA_FLEET_HOST" ] || [ -z "$FLEET_HOST" ] || [ -z "$API_KEY" ] || [ -z "$STACK_VERSION" ]; then
     echo "ERROR: Required environment variables are not set."
-    echo "Please set KIBANA_FLEET_HOST, FLEET_HOST, ELASTIC_PASSWORD, and STACK_VERSION."
+    echo "Please set KIBANA_FLEET_HOST, FLEET_HOST, API_KEY, and STACK_VERSION."
     # exit 1  # Commented out to avoid container exit
 fi
 
@@ -30,11 +30,11 @@ apt-get update && apt-get install -y curl jq
 echo "Fetching enrollment tokens..."
 ENROLLMENT_TOKENS=$(curl -s -X GET "${KIBANA_FLEET_HOST}/api/fleet/enrollment-api-keys" \
      -H "kbn-xsrf: true" \
-     -u elastic:${ELASTIC_PASSWORD} \
+     -H "Authorization: ApiKey ${API_KEY}" \
      -k)
 
 if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to fetch enrollment tokens. Please check your Kibana Fleet host and credentials."
+    echo "ERROR: Failed to fetch enrollment tokens. Please check your Kibana Fleet host and API key."
     # exit 1  # Commented out to avoid container exit
 fi
 
@@ -54,7 +54,7 @@ if [ -z "$AGENT_TOKEN" ]; then
     NEW_POLICY_RESPONSE=$(curl -s -X POST "${KIBANA_FLEET_HOST}/api/fleet/agent_policies" \
             -H "kbn-xsrf: true" \
             -H "Content-Type: application/json" \
-            -u elastic:${ELASTIC_PASSWORD} \
+            -H "Authorization: ApiKey ${API_KEY}" \
             -k \
             -d '{"name":"Default Policy","namespace":"default","description":"Default policy created by setup script","monitoring_enabled":["logs","metrics"]}')
     
@@ -71,7 +71,7 @@ if [ -z "$AGENT_TOKEN" ]; then
     NEW_TOKEN_RESPONSE=$(curl -s -X POST "${KIBANA_FLEET_HOST}/api/fleet/enrollment-api-keys" \
          -H "kbn-xsrf: true" \
          -H "Content-Type: application/json" \
-         -u elastic:${ELASTIC_PASSWORD} \
+         -H "Authorization: ApiKey ${API_KEY}" \
          -k \
          -d "{\"policy_id\": \"${DEFAULT_POLICY_ID}\"}")
     
@@ -117,11 +117,7 @@ else
     ./elastic-agent run > agent_debug.log 2>&1 &
 fi
 
-
 cd elastic-agent-${STACK_VERSION}-linux-x86_64
-
-# generate the Elastic Agent configuration, can be used in debian with command ./elastic-agent run -c agent-config.yml > agent_debug.log 2>&1 &
-
 
 echo "Launching Elastic Agent in background..."
 # Run in background mode
