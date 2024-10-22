@@ -1,7 +1,4 @@
-# kibana_fleet_host: "https://kib01:5601"
-kibana_fleet_host: "https://585bbf1f2f624ce68e24ffa43fd683a4.us-central1.gcp.cloud.es.io"
-# fleet_host: "https://fleet:8220"
-fleet_host: "https://6ad32ae422ea4a04b034736d387bc41b.fleet.us-central1.gcp.cloud.es.io"
-# elastic_password: "elastic"
-api_key: "WFdNc3RKSUIxc3JCOTlHV01aQXI6MC1Ia0NER1pRM0tOTlVlV0E5d3hEZw=="  #ensure this is not committed to versioning control tool
-stack_version: "8.15.3"
+kibana_fleet_host: "https://kib01:5601"
+fleet_host: "https://fleet:8220"
+elastic_password: "elastic"
+stack_version: "8.15.2"
