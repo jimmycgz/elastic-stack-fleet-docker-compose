@@ -14,50 +14,44 @@ This Ansible role automates the installation and configuration of Elastic Agent 
 ## Requirements
 
 - Ansible 2.9 or higher
-- Target systems running Ubuntu or Debian
+- Docker containers running Ubuntu and Debian
 - Internet access on target systems for package installation and Elastic Agent download
 - Elastic Stack (Elasticsearch, Kibana, and Fleet) already set up and accessible
 
 ## Role Variables
 
-Edit `inventory.yml` to configure the following variables:
+The following variables need to be passed to the playbook:
 
-```yaml
-kibana_fleet_host: "https://your-kibana-host:5601"
-fleet_host: "https://your-fleet-host:8220"
-stack_version: "8.15.2"
-```
+- `elk_kibana_host`: The URL of your Kibana instance
+- `fleet_host`: The URL of your Fleet server
+- `elk_api_key`: The API key for authentication
+- `stack_version`: The version of the Elastic Stack you're using
+
+These variables are sourced from the .env file in the pre-stack directory.
 
 ## Usage
 
-0. Initial setup
-* Install Python packages (requirements.txt) at the root folder of ansible playbook:
-```
-pip install -r requirements.txt
-```
-If needed, install Ansible collections and roles:
-```
-ansible-galaxy install -r requirements.yml
-```
-
-1. Include this role in your playbook:
-
-   ```yaml
-   ---
-   - hosts: elastic_agents
-     roles:
-       - es-agent
+1. Ensure Docker containers are running:
+   ```
+   cd $HOME/projects/ansible/elastic-stack-fleet-docker-compose/pre-stack
+   docker-compose up -d
    ```
 
-2. Update the inventory file (`inventory.yml`) with your target hosts and ELK stack details.
-
-3. Run your playbook, passing the API key as an extra variable:
-
+2. Source the .env file:
    ```
-   ansible-playbook -i inventory.yml playbook.yml -e "elk_api_key=your_api_key_here" -v
+   source $HOME/projects/ansible/elastic-stack-fleet-docker-compose/pre-stack/.env
    ```
 
-   Replace `your_api_key_here` with your actual Elastic API key.
+3. Run the Ansible playbook:
+   ```
+   cd $HOME/projects/ansible/elastic-stack-fleet-docker-compose/ansible
+   ansible-playbook -i inventory.yml playbook.yml \
+     -e "elk_kibana_host=$ELK_KIBANA_HOST" \
+     -e "fleet_host=$FLEET_HOST" \
+     -e "elk_api_key=$ELK_API_KEY" \
+     -e "stack_version=$STACK_VERSION" \
+     -v
+   ```
 
 ## Role Structure
 
@@ -75,22 +69,8 @@ es-agent/
 └── README.md
 ```
 
-- `main.yml`: Primary task file that orchestrates the installation process
-- `agent-setup-common.yml`: Common tasks to add ES agent to the fleet
-- `agent-setup-ubuntu.yml`: Ubuntu-specific setup tasks
-- `agent-setup-debian.yml`: Debian-specific setup tasks
-- `vars/main.yml`: Variable definitions for the role
-
-## How it Works
-
-1. The role first performs common tasks like installing dependencies and fetching enrollment tokens.
-2. It then detects the target system's distribution (Ubuntu or Debian) and includes the appropriate setup file.
-3. For Ubuntu, it uses the built-in `install` command of the Elastic Agent.
-4. For Debian, it goes manual `enroll` steps, including setting up a systemd service.
-
 ## Customization
 
-- Modify the variables in `inventory.yml` to match your Elastic Stack setup.
 - For Debian installations, you can customize the systemd service by editing the installation tasks in `agent-setup-debian.yml`.
 
 ## Notes
@@ -101,9 +81,10 @@ es-agent/
 ## Troubleshooting
 
 - Check Ansible logs for any error messages during execution.
-- Verify that the provided URLs in `inventory.yml` are correct.
+- Verify that the provided URLs and API key are correct in the .env file.
 - Ensure your Elastic Stack is properly set up and accessible from the target systems.
+- Make sure the Docker containers are running before executing the playbook.
 
 ## Testing
 
-This role can be tested using Docker containers to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
+This role is tested using Docker containers to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.

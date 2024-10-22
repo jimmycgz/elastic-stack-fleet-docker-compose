@@ -3,6 +3,14 @@
   hosts: elastic_agents
   gather_facts: false
   tasks:
+    - name: Debug variables
+      debug:
+        msg: 
+          - "ELK Kibana Host: {{ elk_kibana_host }}"
+          - "Fleet Host: {{ fleet_host }}"
+          # - "ELK API Key: {{ elk_api_key }}"
+          - "Stack Version: {{ stack_version }}"
+
     - name: Install Python3
       raw: which python3 || (apt-get update && apt-get install -y python3)
       changed_when: false
@@ -17,7 +25,7 @@
   tasks:
     - name: Check Kibana connectivity
       uri:
-        url: "{{ kibana_fleet_host }}/api/status"
+        url: "{{ elk_kibana_host }}/api/status"
         method: GET
         validate_certs: no
         headers:
@@ -27,7 +35,7 @@
 
     - name: Fail if Kibana is not reachable
       fail:
-        msg: "Unable to connect to Kibana at {{ kibana_fleet_host }}. Please check the URL and ensure Kibana is running and accessible."
+        msg: "Unable to connect to Kibana at {{ elk_kibana_host }}. Please check the URL and ensure Kibana is running and accessible."
       when: kibana_status is failed
 
 - name: Install Elastic Agent
