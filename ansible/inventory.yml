@@ -2,14 +2,22 @@ all:
   children:
     elastic_agents:
       hosts:
-        agent-ubuntu2-elk-pub:
-          ansible_connection: docker
+        agent-ubuntu2:
+          ansible_connection: community.docker.docker
           ansible_python_interpreter: /usr/bin/python3
-        agent-debian2-elk-pub:
-          ansible_connection: docker
+          ansible_shell_executable: /bin/bash
+          ansible_host: agent-ubuntu2
+          ansible_remote_tmp: /tmp/.ansible
+        agent-debian2:
+          ansible_connection: community.docker.docker
           ansible_python_interpreter: /usr/bin/python3
+          ansible_shell_executable: /bin/bash
+          ansible_host: agent-debian2
+          ansible_remote_tmp: /tmp/.ansible
       vars:
+        ansible_user: root
         # Common ELK configuration variables
-        kibana_fleet_host: "https://your-public-kibana-host:5601"
-        fleet_host: "https://your-public-fleet-host:8220"
-        stack_version: "8.15.2"
+        kibana_fleet_host: "https://585bbf1f2f624ce68e24ffa43fd683a4.us-central1.gcp.cloud.es.io"
+        fleet_host: "https://6ad32ae422ea4a04b034736d387bc41b.fleet.us-central1.gcp.cloud.es.io"
+        stack_version: "8.15.3"
+        api_key: "{{ lookup('env', 'ANSIBLE_API_KEY') }}"

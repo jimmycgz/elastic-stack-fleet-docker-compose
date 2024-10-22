@@ -21,7 +21,7 @@
         method: GET
         validate_certs: no
         headers:
-          Authorization: "ApiKey {{ elk_api_key }}"
+          Authorization: "ApiKey {{ api_key }}"
       register: kibana_status
       ignore_errors: yes
 

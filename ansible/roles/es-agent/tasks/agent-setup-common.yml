@@ -13,7 +13,7 @@
   assert:
     that:
       - kibana_fleet_host is defined
-      - elk_api_key is defined
+      - api_key is defined
       - fleet_host is defined
       - stack_version is defined
     fail_msg: "One or more required variables are not set in the inventory file for the ELK stack"
@@ -60,7 +60,7 @@
     url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
     method: GET
     headers:
-      Authorization: "ApiKey {{ elk_api_key }}"
+      Authorization: "ApiKey {{ api_key }}"
       kbn-xsrf: "true"
     validate_certs: no
     return_content: yes
@@ -106,13 +106,13 @@
     creates: "{{ elastic_agent.install_dir }}"
   become: yes
 
-- name: Install Elastic Agent
-  command:
-    cmd: "{{ elastic_agent.install_dir }}/elastic-agent install -f --url={{ fleet_host }} --enrollment-token={{ agent_token }}"
-  become: yes
-  register: install_result
-  changed_when: "'Successfully enrolled the Elastic Agent' in install_result.stdout"
+# - name: Install Elastic Agent
+#   command:
+#     cmd: "{{ elastic_agent.install_dir }}/elastic-agent install -f --url={{ fleet_host }} --enrollment-token={{ agent_token }}"
+#   become: yes
+#   register: install_result
+#   changed_when: "'Successfully enrolled the Elastic Agent' in install_result.stdout"
 
-- name: Display installation result
-  debug:
-    var: install_result.stdout_lines
+# - name: Display installation result
+#   debug:
+#     var: install_result.stdout_lines
