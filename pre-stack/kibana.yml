@@ -8,16 +8,16 @@ xpack.fleet.agentPolicies:
     id: fleet-server-policy
     namespace: default
     is_default_fleet_server: true
-    data_output_id: es01
-    monitoring_output_id: es01    
+    data_output_id: elasticsearch
+    monitoring_output_id: elasticsearch    
     package_policies:
       - name: fleet_server-1
         package:
           name: fleet_server
 
 xpack.fleet.outputs:
-  - id: es01
-    name: ES01
+  - id: elasticsearch
+    name: Elasticsearch
     type: elasticsearch
     hosts:
       - ${ES_URL}
