@@ -5,7 +5,7 @@
 #   changed_when: false
 #   failed_when: false
 
-- name: Run Elastic Agent (without systemd)
+- name: Run Elastic Agent (without systemd) (Debian)
   block:
     - name: Run Elastic Agent in background (without systemd)
       shell: >
@@ -19,12 +19,12 @@
       # when: elastic_agent_process.rc != 0
       until: elastic_agent_run is succeeded
 
-# - name: Check if Elastic Agent is already enrolled
+# - name: Check if Elastic Agent is already enrolled (Debian)
 #   stat:
 #     path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64/elastic-agent.yml"
 #   register: elastic_agent_config
 
-- name: Enroll Elastic Agent
+- name: Enroll Elastic Agent (Debian)
   command:
     cmd: >
       ./elastic-agent enroll
