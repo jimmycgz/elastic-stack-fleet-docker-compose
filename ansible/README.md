@@ -20,12 +20,11 @@ This Ansible role automates the installation and configuration of Elastic Agent 
 
 ## Role Variables
 
-Edit `vars/main.yml` to configure the following variables:
+Edit `inventory.yml` to configure the following variables:
 
 ```yaml
 kibana_fleet_host: "https://your-kibana-host:5601"
 fleet_host: "https://your-fleet-host:8220"
-elastic_password: "your_elastic_password"
 stack_version: "8.15.2"
 ```
 
@@ -45,27 +44,20 @@ ansible-galaxy install -r requirements.yml
 
    ```yaml
    ---
-   - hosts: localhost
-     connection: local
-     collections:
-       - community.general
-     become: yes
+   - hosts: elastic_agents
      roles:
        - es-agent
    ```
 
-2. Add inventory:
+2. Update the inventory file (`inventory.yml`) with your target hosts and ELK stack details.
+
+3. Run your playbook, passing the API key as an extra variable:
 
    ```
-   [servers]
-   localhost ansible_connection=local
+   ansible-playbook -i inventory.yml playbook.yml -e "elk_api_key=your_api_key_here" -v
    ```
 
-3. Run your playbook (-v to run in verbose mode):
-
-   ```
-   ansible-playbook -i inventory.yml playbook.yml -v
-   ```
+   Replace `your_api_key_here` with your actual Elastic API key.
 
 ## Role Structure
 
@@ -98,7 +90,7 @@ es-agent/
 
 ## Customization
 
-- Modify the variables in `vars/main.yml` to match your Elastic Stack setup.
+- Modify the variables in `inventory.yml` to match your Elastic Stack setup.
 - For Debian installations, you can customize the systemd service by editing the installation tasks in `agent-setup-debian.yml`.
 
 ## Notes
@@ -109,11 +101,9 @@ es-agent/
 ## Troubleshooting
 
 - Check Ansible logs for any error messages during execution.
-- Verify that the provided URLs and credentials in `vars/main.yml` are correct.
+- Verify that the provided URLs in `inventory.yml` are correct.
 - Ensure your Elastic Stack is properly set up and accessible from the target systems.
 
-## [WIP] Testing
+## Testing
 
-This role was developed and tested via Ansible playook targeting a Docker Compose environment to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
-
-Molecule configuration is still WIP.
+This role can be tested using Docker containers to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
