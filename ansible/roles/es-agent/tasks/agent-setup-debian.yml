@@ -1,28 +1,31 @@
 ---
+- name: Check if Elastic Agent is installed (Debian)
+  shell: "test -f {{ elastic_agent.install_dir }}/elastic-agent && {{ elastic_agent.install_dir }}/elastic-agent version"
+  register: agent_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Set installation status
+  set_fact:
+    elastic_agent_installed: "{{ agent_version_check.rc == 0 }}"
+
 - name: Check if Elastic Agent is already running
   shell: ps aux | grep -v grep | grep "elastic-agent run"
   register: elastic_agent_process
   changed_when: false
   failed_when: false
+  when: not elastic_agent_installed
 
 - name: Run Elastic Agent (without systemd)
   block:
     - name: Run Elastic Agent in background (without systemd)
       shell: >
-        ./elastic-agent run > agent_debug.log 2>&1 &
-      args:
-        chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+        cd {{ elastic_agent.install_dir }} && ./elastic-agent run > agent_debug.log 2>&1 &
       async: 45
       poll: 0
-      become: yes
       register: elastic_agent_run
       when: elastic_agent_process.rc != 0
-      until: elastic_agent_run is succeeded
-
-- name: Check if Elastic Agent is already enrolled
-  stat:
-    path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64/elastic-agent.yml"
-  register: elastic_agent_config
+  when: not elastic_agent_installed
 
 - name: Enroll Elastic Agent
   command:
@@ -34,18 +37,5 @@
       --v
       --force
   args:
-    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
-  become: yes
-  when: not elastic_agent_config.stat.exists
-
-# - name: Clean up
-#   file:
-#     path: "{{ item }}"
-#     state: absent
-#   loop:
-#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#   become: yes
-
-# - name: Elastic Agent setup completed
-#   debug:
-#     msg: "Elastic Agent setup completed successfully"
+    chdir: "{{ elastic_agent.install_dir }}"
+  when: not elastic_agent_installed
