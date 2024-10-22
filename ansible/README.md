@@ -10,6 +10,7 @@ This Ansible role automates the installation and configuration of Elastic Agent 
 - Downloads and installs the specified version of Elastic Agent
 - Configures the agent to connect to your Elastic Stack
 - Handles distribution-specific installation differences
+- Supports both API Key and Basic Auth authentication methods
 
 ## Requirements
 
@@ -20,14 +21,19 @@ This Ansible role automates the installation and configuration of Elastic Agent 
 
 ## Role Variables
 
-The following variables need to be passed to the playbook:
+The following variables need to be set in the .env file in the pre-stack directory:
 
-- `elk_kibana_host`: The URL of your Kibana instance
-- `fleet_host`: The URL of your Fleet server
-- `elk_api_key`: The API key for authentication
-- `stack_version`: The version of the Elastic Stack you're using
+- `AUTH_METHOD`: Set to 'api_key' or 'basic_auth' to specify the authentication method
+- `ELK_KIBANA_HOST`: The URL of your Kibana instance
+- `FLEET_HOST`: The URL of your Fleet server
+- `STACK_VERSION`: The version of the Elastic Stack you're using
 
-These variables are sourced from the .env file in the pre-stack directory.
+**Scenario A: When using API Key authentication**
+- `ELK_API_KEY`: The API key for authentication
+
+**Scenario B: When using Basic Auth authentication**
+- `ELK_USERNAME`: The username for Basic Auth
+- `ELK_PASSWORD`: The password for Basic Auth
 
 ## Usage
 
@@ -37,21 +43,29 @@ These variables are sourced from the .env file in the pre-stack directory.
    docker-compose up -d
    ```
 
-2. Source the .env file:
+2. Update the .env file in the pre-stack directory with the appropriate values for your setup, including the `AUTH_METHOD`.
+
+3. Source the .env file:
    ```
    source $HOME/projects/ansible/elastic-stack-fleet-docker-compose/pre-stack/.env
+   echo $AUTH_METHOD
    ```
 
-3. Run the Ansible playbook:
+4. Run the Ansible playbook:
    ```
    cd $HOME/projects/ansible/elastic-stack-fleet-docker-compose/ansible
    ansible-playbook -i inventory.yml playbook.yml \
      -e "elk_kibana_host=$ELK_KIBANA_HOST" \
      -e "fleet_host=$FLEET_HOST" \
-     -e "elk_api_key=$ELK_API_KEY" \
      -e "stack_version=$STACK_VERSION" \
+     -e "auth_method=$AUTH_METHOD" \
+     -e "elk_api_key=$ELK_API_KEY" \
+     -e "elk_username=$ELK_USERNAME" \
+     -e "elk_password=$ELK_PASSWORD" \
      -v
    ```
+
+   Note: You only need to include the variables relevant to your chosen authentication method (either `elk_api_key` or `elk_username` and `elk_password`).
 
 ## Role Structure
 
@@ -63,7 +77,6 @@ es-agent/
 │   ├── agent-setup-ubuntu.yml
 │   └── agent-setup-debian.yml
 ├── templates/
-│   └── elastic-agent.service.j2
 ├── vars/
 │   └── main.yml
 └── README.md
@@ -77,11 +90,12 @@ es-agent/
 
 - This role uses the `--insecure` flag when installing the Elastic Agent. For production environments, proper SSL/TLS configuration is recommended.
 - Ensure that the target systems can reach the specified Kibana and Fleet hosts.
+- When using Basic Auth, make sure to use a secure method to pass the username and password, such as Ansible Vault for sensitive information.
 
 ## Troubleshooting
 
 - Check Ansible logs for any error messages during execution.
-- Verify that the provided URLs and API key are correct in the .env file.
+- Verify that the provided URLs and authentication credentials are correct in the .env file.
 - Ensure your Elastic Stack is properly set up and accessible from the target systems.
 - Make sure the Docker containers are running before executing the playbook.
 

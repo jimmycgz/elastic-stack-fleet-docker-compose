@@ -13,9 +13,10 @@
   assert:
     that:
       - elk_kibana_host is defined
-      - elk_api_key is defined
       - fleet_host is defined
       - stack_version is defined
+      - auth_method is defined
+      - (auth_method == 'api_key' and elk_api_key is defined) or (auth_method == 'basic_auth' and elk_username is defined and elk_password is defined)
     fail_msg: "One or more required variables are not set in the inventory file for the ELK stack"
 
 - name: Debug connection information
@@ -23,22 +24,33 @@
     msg: 
       - "Attempting to connect to Kibana at: {{ elk_kibana_host }}"
       - "Fleet host is set to: {{ fleet_host }}"
+      - "Authentication method: {{ auth_method }}"
 
-- name: Check Kibana connectivity
+- name: Check Kibana connectivity with API Key
   uri:
     url: "{{ elk_kibana_host }}/api/status"
     method: GET
     validate_certs: no
+    headers:
+      Authorization: "ApiKey {{ elk_api_key }}"
   register: kibana_status
   ignore_errors: yes
+  when: auth_method == 'api_key'
+
+- name: Check Kibana connectivity with Basic Auth
+  uri:
+    url: "{{ elk_kibana_host }}/api/status"
+    method: GET
+    validate_certs: no
+    url_username: "{{ elk_username }}"
+    url_password: "{{ elk_password }}"
+  register: kibana_status
+  ignore_errors: yes
+  when: auth_method == 'basic_auth'
 
 - name: Display Kibana connectivity result
   debug:
     var: kibana_status
-
-- name: Debug elk_kibana_host
-  debug:
-    var: elk_kibana_host
 
 - name: Fail if Kibana is not reachable
   fail:
@@ -53,9 +65,8 @@
       - jq
     state: present
     update_cache: yes
-  # become: yes
 
-- name: Fetch enrollment tokens from ELK stack
+- name: Fetch enrollment tokens from ELK stack with API Key
   uri:
     url: "{{ elk_kibana_host }}/api/fleet/enrollment-api-keys"
     method: GET
@@ -64,7 +75,25 @@
       kbn-xsrf: "true"
     validate_certs: no
     return_content: yes
-  register: enrollment_tokens
+  register: api_key_tokens
+  when: auth_method == 'api_key'
+
+- name: Fetch enrollment tokens from ELK stack with Basic Auth
+  uri:
+    url: "{{ elk_kibana_host }}/api/fleet/enrollment-api-keys"
+    method: GET
+    url_username: "{{ elk_username }}"
+    url_password: "{{ elk_password }}"
+    headers:
+      kbn-xsrf: "true"
+    validate_certs: no
+    return_content: yes
+  register: basic_auth_tokens
+  when: auth_method == 'basic_auth'
+
+- name: Set enrollment tokens
+  set_fact:
+    enrollment_tokens: "{{ api_key_tokens if auth_method == 'api_key' else basic_auth_tokens }}"
 
 - name: Debug enrollment tokens response
   debug:
@@ -92,7 +121,6 @@
   get_url:
     url: "{{ elastic_agent.download_url }}"
     dest: "{{ elastic_agent.archive_path }}"
-  # become: yes
   register: elastic_agent_download
   until: elastic_agent_download is succeeded
   retries: 3
@@ -104,16 +132,3 @@
     dest: "/tmp/"
     remote_src: yes
     creates: "{{ elastic_agent.install_dir }}"
-  # become: yes
-
-# This installation is different per OS type, so will be handled separately
-# - name: Install Elastic Agent
-#   command:
-#     cmd: "{{ elastic_agent.install_dir }}/elastic-agent install -f --url={{ fleet_host }} --enrollment-token={{ agent_token }}"
-#   # become: yes
-#   register: install_result
-#   changed_when: "'Successfully enrolled the Elastic Agent' in install_result.stdout"
-
-# - name: Display installation result
-#   debug:
-#     var: install_result.stdout_lines

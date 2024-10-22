@@ -12,4 +12,7 @@ all:
         elk_kibana_host: "{{ lookup('env', 'ELK_KIBANA_HOST') }}"
         fleet_host: "{{ lookup('env', 'FLEET_HOST') }}"
         elk_api_key: "{{ lookup('env', 'ELK_API_KEY') }}"
+        elk_username: "{{ lookup('env', 'ELK_USERNAME') }}"
+        elk_password: "{{ lookup('env', 'ELK_PASSWORD') }}"
         stack_version: "{{ lookup('env', 'STACK_VERSION') }}"
+        auth_method: "{{ lookup('env', 'AUTH_METHOD') | default('api_key') }}"

@@ -14,9 +14,8 @@
       --non-interactive
       --force
   args:
-    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+    chdir: "{{ elastic_agent.install_dir }}"
   register: install_result
-  # become: yes
   when: not elastic_agent_binary.stat.exists
 
 - name: Display installation result (Ubuntu)
@@ -33,10 +32,9 @@
 #     path: "{{ item }}"
 #     state: absent
 #   loop:
-#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
-#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#   become: yes
+#     - "{{ elastic_agent.install_dir }}"
+#     - "{{ elastic_agent.archive_path }}"
 
 # - name: Elastic Agent setup completed
 #   debug:
-#     msg: "Elastic Agent setup completed successfully"
+#     msg: "Elastic Agent setup completed successfully on Ubuntu"

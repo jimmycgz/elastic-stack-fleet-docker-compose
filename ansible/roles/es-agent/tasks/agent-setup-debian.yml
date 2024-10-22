@@ -1,9 +1,9 @@
 ---
-# - name: Check if Elastic Agent is already running
-#   shell: ps aux | grep -v grep | grep "elastic-agent run"
-#   register: elastic_agent_process
-#   changed_when: false
-#   failed_when: false
+- name: Check if Elastic Agent is already running (Debian)
+  shell: ps aux | grep -v grep | grep "elastic-agent run"
+  register: elastic_agent_process
+  changed_when: false
+  failed_when: false
 
 - name: Run Elastic Agent (without systemd) (Debian)
   block:
@@ -11,18 +11,17 @@
       shell: >
         ./elastic-agent run > agent_debug.log 2>&1 &
       args:
-        chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+        chdir: "{{ elastic_agent.install_dir }}"
       async: 45
       poll: 0
-      # become: yes
       register: elastic_agent_run
-      # when: elastic_agent_process.rc != 0
+      when: elastic_agent_process.rc != 0
       until: elastic_agent_run is succeeded
 
-# - name: Check if Elastic Agent is already enrolled (Debian)
-#   stat:
-#     path: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64/elastic-agent.yml"
-#   register: elastic_agent_config
+- name: Check if Elastic Agent is already enrolled (Debian)
+  stat:
+    path: "{{ elastic_agent.install_dir }}/elastic-agent.yml"
+  register: elastic_agent_config
 
 - name: Enroll Elastic Agent (Debian)
   command:
@@ -34,18 +33,14 @@
       --v
       --force
   args:
-    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
-  # become: yes
-  # when: not elastic_agent_config.stat.exists
+    chdir: "{{ elastic_agent.install_dir }}"
+  when: not elastic_agent_config.stat.exists
 
-# - name: Clean up
-#   file:
-#     path: "{{ item }}"
-#     state: absent
-#   loop:
-#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#   # become: yes
+- name: Clean up
+  file:
+    path: "{{ elastic_agent.archive_path }}"
+    state: absent
 
-# - name: Elastic Agent setup completed
-#   debug:
-#     msg: "Elastic Agent setup completed successfully"
+- name: Elastic Agent setup completed (Debian)
+  debug:
+    msg: "Elastic Agent setup completed successfully on Debian"

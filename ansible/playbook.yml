@@ -8,8 +8,8 @@
         msg: 
           - "ELK Kibana Host: {{ elk_kibana_host }}"
           - "Fleet Host: {{ fleet_host }}"
-          # - "ELK API Key: {{ elk_api_key }}"
           - "Stack Version: {{ stack_version }}"
+          - "Auth Method: {{ auth_method }}"
 
     - name: Install Python3
       raw: which python3 || (apt-get update && apt-get install -y python3)
@@ -23,7 +23,7 @@
   hosts: elastic_agents
   gather_facts: false
   tasks:
-    - name: Check Kibana connectivity
+    - name: Check Kibana connectivity with API Key
       uri:
         url: "{{ elk_kibana_host }}/api/status"
         method: GET
@@ -32,6 +32,18 @@
           Authorization: "ApiKey {{ elk_api_key }}"
       register: kibana_status
       ignore_errors: yes
+      when: auth_method == 'api_key'
+
+    - name: Check Kibana connectivity with Basic Auth
+      uri:
+        url: "{{ elk_kibana_host }}/api/status"
+        method: GET
+        validate_certs: no
+        url_username: "{{ elk_username }}"
+        url_password: "{{ elk_password }}"
+      register: kibana_status
+      ignore_errors: yes
+      when: auth_method == 'basic_auth'
 
     - name: Fail if Kibana is not reachable
       fail:
