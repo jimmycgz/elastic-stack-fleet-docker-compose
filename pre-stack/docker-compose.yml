@@ -66,6 +66,7 @@ services:
       setup:
         condition: service_healthy
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    platform: linux/amd64
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     ports:
@@ -109,6 +110,7 @@ services:
       es01:
         condition: service_healthy
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    platform: linux/amd64    
     volumes:
       - certs:/usr/share/kibana/config/certs
       - ./kibana.yml:/usr/share/kibana/config/kibana.yml
@@ -155,6 +157,7 @@ services:
       kib01:
         condition: service_healthy        
     image: docker.elastic.co/beats/elastic-agent:${STACK_VERSION}
+    platform: linux/amd64    
     volumes:
       - certs:/usr/share/elastic-agent/config/certs
     container_name: fleet

@@ -1,0 +1,78 @@
+# Elastic Stack Generated Files
+config/tokens/
+*.token
+.env
+
+# Certificates and Keys
+config/certs/
+*.crt
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.zip
+
+# Docker Volumes
+data/
+logs/
+
+# Operating System Files
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# IDE Files
+## VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+## JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Node (in case you add any Node.js tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+*.log
+log/
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Environment files
+.env*
+!.env.example
+
+# Other common files to ignore
+*.bak
+*.backup
+*.old
