@@ -3,10 +3,11 @@
   "image": "mcr.microsoft.com/devcontainers/base:jammy",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers/features/python:1": {},
-    "ghcr.io/devcontainers/features/gcloud:1": {}
+    "ghcr.io/devcontainers/features/python:1": {}
+    // "ghcr.io/devcontainers/features/gcloud:1": {} # permission error
   },
   "onCreateCommand": "pip3 install ansible-dev-tools; python3 -m pip install 'molecule-plugins[docker]'",
+
   "postStartCommand": "bash .devcontainer/post-start.sh",
   
   // Add these lines to set CPU and RAM limits

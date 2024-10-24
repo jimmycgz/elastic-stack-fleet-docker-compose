@@ -76,3 +76,5 @@ logs/
 *.bak
 *.backup
 *.old
+
+*.tar.gz
