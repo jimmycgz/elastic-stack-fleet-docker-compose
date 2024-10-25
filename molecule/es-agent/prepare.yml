@@ -1,18 +1,126 @@
 ---
-- name: Prepare
-  hosts: all
+- name: Create shared directories
+  hosts: localhost
+  gather_facts: false
   tasks:
-    - name: Update apt cache
+    - name: Create shared certificates directory
+      file:
+        path: "{{ molecule_ephemeral_directory }}/shared-certs"
+        state: directory
+        mode: '0777'
+      register: certs_dir
+
+    - name: Debug shared directory
+      debug:
+        var: certs_dir
+
+- name: Prepare test environment
+  hosts: elastic_agents
+  gather_facts: false
+  tasks:
+    - name: Debug - Check container status
+      command: docker ps -a
+      register: docker_ps
+      changed_when: false
+      delegate_to: localhost
+
+    - name: Debug - Show container status
+      debug:
+        var: docker_ps.stdout_lines
+
+    - name: Wait for elastic-setup to complete
+      command: docker logs -f elastic-setup
+      register: setup_logs
+      changed_when: false
+      delegate_to: localhost
+
+    - name: Debug - Show setup logs
+      debug:
+        var: setup_logs.stdout_lines
+      when: setup_logs is defined
+
+    - name: Install required packages
       apt:
+        name:
+          - python3
+          - python3-pip
+          - curl
+          - ca-certificates
+        state: present
         update_cache: yes
       become: true
 
-    - name: Install necessary packages
-      apt:
-        name: 
-          - curl
-          - python3-pip
-          - python3-setuptools
-          - python3-wheel
-        state: present
-      become: true
+    # - name: Wait for Elasticsearch to be ready
+    #   uri:
+    #     url: "{{ es_host }}/_cluster/health"
+    #     method: GET
+    #     user: elastic
+    #     password: "{{ elastic_password }}"
+    #     force_basic_auth: true
+    #     return_content: yes
+    #     validate_certs: no
+    #     status_code: [200, 401, 503]
+    #   register: result
+    #   until: >
+    #     result.status == 200 and
+    #     'status' in (result.content | from_json) and
+    #     ((result.content | from_json).status == 'green' or
+    #      (result.content | from_json).status == 'yellow')
+    #   retries: 30
+    #   delay: 10
+    #   ignore_errors: yes
+
+    # - name: Debug - Show Elasticsearch response
+    #   debug:
+    #     var: result
+
+    # - name: Wait for Kibana to be ready
+    #   uri:
+    #     url: "{{ kibana_host }}/api/status"
+    #     method: GET
+    #     user: elastic
+    #     password: "{{ elastic_password }}"
+    #     force_basic_auth: true
+    #     return_content: yes
+    #     validate_certs: no
+    #     status_code: [200, 401, 503]
+    #   register: result
+    #   until: >
+    #     result.status == 200 and
+    #     'status' in (result.content | from_json) and
+    #     (result.content | from_json).status.overall.level == 'available'
+    #   retries: 30
+    #   delay: 10
+    #   ignore_errors: yes
+
+    # - name: Debug - Show Kibana response
+    #   debug:
+    #     var: result
+
+    # - name: Wait for Fleet Server to be ready
+    #   uri:
+    #     url: "{{ fleet_host }}/api/status"
+    #     method: GET
+    #     user: elastic
+    #     password: "{{ elastic_password }}"
+    #     force_basic_auth: true
+    #     return_content: yes
+    #     validate_certs: no
+    #     status_code: [200, 404, 503]
+    #   register: result
+    #   until: result.status in [200, 404]
+    #   retries: 30
+    #   delay: 10
+    #   ignore_errors: yes
+
+    # - name: Debug - Show Fleet Server response
+    #   debug:
+    #     var: result
+
+    # - name: Debug - Show service status
+    #   debug:
+    #     msg: "Service {{ item.name }} is ready"
+    #   loop:
+    #     - { name: "Elasticsearch", url: "{{ es_host }}" }
+    #     - { name: "Kibana", url: "{{ kibana_host }}" }
+    #     - { name: "Fleet Server", url: "{{ fleet_host }}" }

@@ -2,20 +2,13 @@
 - name: Converge
   hosts: all
   tasks:
-    - name: Debug variables before role inclusion
-      debug:
-        msg: 
-          - "kibana_fleet_host before role: {{ kibana_fleet_host }}"
-          - "elastic_password before role: {{ elastic_password }}"
-          - "fleet_host before role: {{ fleet_host }}"     
-
-    - name: "Include es-agent role"
+    - name: Include es-agent role
       include_role:
-        name: "../../roles/es-agent"
-
-    - name: Debug variables after role inclusion
-      debug:
-        msg: 
-          - "kibana_fleet_host after role: {{ kibana_fleet_host }}"
-          - "elastic_password after role: {{ elastic_password }}"
-          - "fleet_host after role: {{ fleet_host }}"
+        name: es-agent
+      vars:
+        elastic_agent:
+          version: "8.15.2"
+          fleet_url: "{{ fleet_host }}"
+          elasticsearch_host: "{{ es_host }}"
+          kibana_host: "{{ kibana_host }}"
+          ca_cert: "/elk-stack/certs/ca/ca.crt"
