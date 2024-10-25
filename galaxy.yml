@@ -1,0 +1,32 @@
+namespace: "critical_roles"
+name: "webapp"
+version: "1.0.0"
+readme: "README.md"
+authors:
+  - "Your Name <your.email@example.com>"
+description: "Ansible role to deploy and configure a web application"
+license:
+  - Apache-2.0
+license_file: ''
+tags:
+  - web
+  - application
+  - webapp
+repository: "https://github.com/sectigo/ansible-collection-critical-roles/"
+documentation: "https://github.com/sectigo/ansible-collection-critical-roles/blob/main/README.md"
+homepage: "https://github.com/sectigo/ansible-collection-critical-roles"
+issues: "https://github.com/sectigo/ansible-collection-critical-roles/issues"
+dependencies: {}
+build_ignore:
+  - codecov.yml
+  - .github
+  - .gitattributes
+  - .gitignore
+  - hacking
+  - requirements.txt
+  - test-requirements.txt
+  - tests
+  - .tox
+  - tox.ini
+  - .yamllint
+  - renovate.json
