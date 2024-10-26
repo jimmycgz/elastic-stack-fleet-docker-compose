@@ -1,33 +1,49 @@
 ---
-- name: Verify
-  hosts: all
+- name: Verify es-agent deployment
+  hosts: elastic_agents
+  gather_facts: true
   tasks:
-    - name: Check Elastic Agent service status
-      service_facts:
-      register: services_state
+    - name: Check if elastic-agent process is running
+      shell: |
+        if command -v pgrep >/dev/null 2>&1; then
+          pgrep -f "elastic-agent"
+        else
+          ps aux | grep "[e]lastic-agent" | awk '{print $2}'
+        fi
+      register: agent_process
+      changed_when: false
+      failed_when: agent_process.rc != 0
 
-    - name: Verify Elastic Agent service is running
-      assert:
-        that:
-          - "'elastic-agent' in services_state.ansible_facts.services"
-          - "services_state.ansible_facts.services['elastic-agent'].state == 'running'"
-        fail_msg: "Elastic Agent service is not running"
-        success_msg: "Elastic Agent service is running"
+    - name: Check agent status using binary
+      command: elastic-agent status
+      register: agent_status
+      changed_when: false
+      failed_when: >
+        'Fleet Server: Connected' not in agent_status.stdout or
+        'State: HEALTHY' not in agent_status.stdout
 
-    - name: Check agent registration with Fleet
+    - name: Verify agent version matches stack version
+      command: elastic-agent version
+      register: agent_version
+      changed_when: false
+      failed_when: >
+        lookup('env', 'STACK_VERSION') not in agent_version.stdout
+
+    - name: Display verification results
+      debug:
+        msg: |
+          Agent Process ID: {{ agent_process.stdout }}
+          Agent Status: {{ agent_status.stdout_lines | to_nice_json }}
+          Agent Version: {{ agent_version.stdout_lines | to_nice_json }}
+      when: 
+        - agent_process is success
+        - agent_status is success
+        - agent_version is success
+
+    - name: Verify agent can reach Fleet Server
       uri:
-        url: "{{ kibana_host }}/api/fleet/agents"
+        url: "{{ fleet_host }}/api/status"
         validate_certs: no
-        method: GET
-        user: elastic
-        password: "{{ elastic_password }}"
-        force_basic_auth: yes
         return_content: yes
-      register: fleet_agents
-
-    - name: Verify agent is registered
-      assert:
-        that:
-          - "fleet_agents.json.total > 0"
-        fail_msg: "No agents registered with Fleet"
-        success_msg: "Agent successfully registered with Fleet"
+      register: fleet_connection
+      failed_when: fleet_connection.status not in [200, 404]

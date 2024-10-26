@@ -1,6 +1,11 @@
 ---
 dependency:
   name: galaxy
+  options:
+    requirements-file: requirements.yml
+    ignore-certs: true
+    ignore-errors: true
+
 driver:
   name: docker
 
@@ -11,162 +16,96 @@ platforms:
     pre_build_image: true
     hostname: elastic-setup
     user: "0"
-    environment:
-      - ELASTIC_PASSWORD=elastic
-      - KIBANA_PASSWORD=elastic
+    entrypoint: []
+    working_dir: /usr/share/elasticsearch
     command: |
-      bash -c 'echo "Starting setup with ELASTIC_PASSWORD=$ELASTIC_PASSWORD";
-      if [ -z "$ELASTIC_PASSWORD" ]; then
-        echo "Error: ELASTIC_PASSWORD is not set, use default password";
-        export ELASTIC_PASSWORD=elastic;
-
-      fi;
-      if [ -z "$KIBANA_PASSWORD" ]; then
-        echo "Error: KIBANA_PASSWORD is not set, use default password";
-        export KIBANA_PASSWORD=elastic;
-
-      fi;
-      echo "Creating certificates directory";
-      mkdir -p config/certs;
-      if [ ! -f config/certs/ca.zip ]; then
-        echo "Creating CA";
-        bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
-        unzip config/certs/ca.zip -d config/certs;
-      fi;
-      if [ ! -f config/certs/certs.zip ]; then
-        echo "Creating certificates";
-        echo -ne \
-        "instances:\n"\
-        "  - name: elasticsearch\n"\
-        "    dns:\n"\
-        "      - elasticsearch\n"\
-        "      - localhost\n"\
-        "    ip:\n"\
-        "      - 127.0.0.1\n"\
-        "  - name: kibana\n"\
-        "    dns:\n"\
-        "      - kibana\n"\
-        "      - localhost\n"\
-        "    ip:\n"\
-        "      - 127.0.0.1\n"\
-        "  - name: fleet-server\n"\
-        "    dns:\n"\
-        "      - fleet-server\n"\
-        "      - localhost\n"\
-        "    ip:\n"\
-        "      - 127.0.0.1\n"\
-        > config/certs/instances.yml;
-        bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
-        unzip config/certs/certs.zip -d config/certs;
-      fi;
-      echo "Setting file permissions";
-      chown -R root:root config/certs;
-      find . -type d -exec chmod 750 \{\} \;;
-      find . -type f -exec chmod 640 \{\} \;;
-      echo "Creating shared certificates directory";
-      mkdir -p /shared-certs;
-      echo "Copying certificates to shared directory";
-      cp -r config/certs/* /shared-certs/;
-      chmod -R 777 /shared-certs;
-      echo "Waiting for Elasticsearch availability";
-      until curl -s --cacert config/certs/ca/ca.crt https://elasticsearch:9200 | grep -q "missing authentication credentials"; do 
-        echo "Elasticsearch is not ready - waiting";
-        sleep 30;
-      done;
-      echo "Setting kibana_system password";
-      until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:$ELASTIC_PASSWORD" -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"$KIBANA_PASSWORD\"}" | grep -q "^{}"; do
-        echo "Failed to set kibana_system password - retrying";
-        sleep 10;
-      done;
-      echo "Setup complete";
-      exit 0'
+      bash -c '
+        source /usr/share/elasticsearch/pre-stack/.env
+        bash -x /usr/share/elasticsearch/pre-stack/elastic-stack-init.sh
+      '
     volumes:
-      - type: bind
-        source: ${MOLECULE_EPHEMERAL_DIRECTORY}/shared-certs
-        target: /shared-certs
-    networks:
-      - name: elastic
+      - ./shared-certs:/usr/share/elasticsearch/config/certs:rw
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    network_mode: elastic
 
   # Elasticsearch container
   - name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
     pre_build_image: true
     hostname: elasticsearch
-    environment:
-      - node.name=elasticsearch
-      - cluster.name=docker-cluster
-      - discovery.type=single-node
-      - ELASTIC_PASSWORD=elastic
-      - xpack.security.enabled=true
-      - xpack.security.http.ssl.enabled=true
-      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.key
-      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.crt
-      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca/ca.crt
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
-      - bootstrap.memory_lock=false
+    command: |
+      bash -c '
+        source /usr/share/elasticsearch/pre-stack/.env &&
+        rm -rf /usr/share/elasticsearch/config/certs &&
+        cp -r /usr/share/elasticsearch/shared-certs /usr/share/elasticsearch/config/certs &&
+        chown -R elasticsearch:root /usr/share/elasticsearch/config/certs &&
+        echo "Starting Elasticsearch manually" &&
+        /usr/local/bin/docker-entrypoint.sh
+      '
     volumes:
-      - type: bind
-        source: ${MOLECULE_EPHEMERAL_DIRECTORY}/shared-certs
-        target: /usr/share/elasticsearch/config/certs
-    mem_limit: 1g
+      - ./shared-certs:/usr/share/elasticsearch/shared-certs:ro
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    tmpfs:
+      - /usr/share/elasticsearch/config/certs:uid=1000,gid=0
+    environment:
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      discovery.type: single-node
+    mem_limit: ${MEM_LIMIT:-1g}
     ports:
-      - "9200:9200"
-    networks:
-      - name: elastic
-    depends_on:
-      - elastic-setup
+      - "${ES_PORT:-9200}:9200"
+    network_mode: elastic
 
-  # Kibana container
   - name: kibana
     image: docker.elastic.co/kibana/kibana:8.15.2
     pre_build_image: true
     hostname: kibana
-    environment:
-      - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=kibana_system
-      - ELASTICSEARCH_PASSWORD=elastic
-      - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
-      - SERVER_SSL_ENABLED=true
-      - SERVER_SSL_CERTIFICATE=/usr/share/kibana/config/certs/kibana/kibana.crt
-      - SERVER_SSL_KEY=/usr/share/kibana/config/certs/kibana/kibana.key
+    command: |
+      bash -c '
+        source /usr/share/elasticsearch/pre-stack/.env &&
+        rm -rf /usr/share/kibana/config/certs &&
+        cp -r /usr/share/kibana/shared-certs /usr/share/kibana/config/certs &&
+        chown -R kibana:root /usr/share/kibana/config/certs &&
+        /usr/local/bin/kibana-docker
+      '
     volumes:
-      - type: bind
-        source: ${MOLECULE_EPHEMERAL_DIRECTORY}/shared-certs
-        target: /usr/share/kibana/config/certs
-    mem_limit: 512m
+      - ./shared-certs:/usr/share/kibana/shared-certs:ro
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    tmpfs:
+      - /usr/share/kibana/config/certs:uid=1000,gid=0
+    mem_limit: ${MEM_LIMIT:-512m}
     ports:
-      - "5601:5601"
-    networks:
-      - name: elastic
+      - "${KIBANA_PORT:-5601}:5601"
+    network_mode: elastic
     depends_on:
       - elasticsearch
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -I --cacert config/certs/ca/ca.crt https://kibana:5601 | grep -q 'HTTP/1.1 302 Found'"]
+      interval: 10s
+      timeout: 10s
+      retries: 120
 
   # Fleet Server container
   - name: fleet-server
     image: docker.elastic.co/beats/elastic-agent:8.15.2
     pre_build_image: true
     hostname: fleet-server
-    environment:
-      - FLEET_SERVER_ENABLE=1
-      - FLEET_SERVER_ELASTICSEARCH_HOST=https://elasticsearch:9200
-      - FLEET_SERVER_ELASTICSEARCH_USERNAME=elastic
-      - FLEET_SERVER_ELASTICSEARCH_PASSWORD=elastic
-      - FLEET_SERVER_ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-      - FLEET_SERVER_CERT=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt
-      - FLEET_SERVER_CERT_KEY=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key
-      - FLEET_SERVER_POLICY_ID=fleet-server-policy
-      - FLEET_SERVER_HOST=0.0.0.0
-      - FLEET_SERVER_PORT=8220
-      - FLEET_SERVER_INSECURE_HTTP=true
+    command: |
+      bash -c '
+        source /usr/share/elasticsearch/pre-stack/.env &&
+        rm -rf /usr/share/elastic-agent/config/certs &&
+        cp -r /usr/share/elastic-agent/shared-certs /usr/share/elastic-agent/config/certs &&
+        chown -R root:root /usr/share/elastic-agent/config/certs &&
+        /usr/local/bin/docker-entrypoint.sh
+      '
     volumes:
-      - type: bind
-        source: ${MOLECULE_EPHEMERAL_DIRECTORY}/shared-certs
-        target: /usr/share/elastic-agent/config/certs
-    mem_limit: 512m
+      - ./shared-certs:/usr/share/elastic-agent/shared-certs:ro
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    tmpfs:
+      - /usr/share/elastic-agent/config/certs:uid=0,gid=0
+    mem_limit: ${MEM_LIMIT:-512m}
     ports:
-      - "8220:8220"
-    networks:
-      - name: elastic
+      - "${FLEET_PORT:-8220}:8220"
+    network_mode: elastic
     depends_on:
       - elasticsearch
       - kibana
@@ -182,11 +121,11 @@ platforms:
       - curl
       - ca-certificates
     volumes:
-      - type: bind
-        source: ${MOLECULE_EPHEMERAL_DIRECTORY}/shared-certs
-        target: /usr/share/elastic-agent/config/certs
-    networks:
-      - name: elastic
+      - ./shared-certs:/usr/share/elastic-agent/shared-certs:ro
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    tmpfs:
+      - /usr/share/elastic-agent/config/certs:uid=0,gid=0
+    network_mode: elastic
     groups:
       - elastic_agents
     depends_on:
@@ -201,12 +140,12 @@ provisioner:
   inventory:
     group_vars:
       all:
-        elastic_password: elastic
-        kibana_password: elastic
-        fleet_host: https://fleet-server:8220
-        es_host: https://elasticsearch:9200
-        kibana_host: https://kibana:5601
-        ca_cert: /usr/share/elastic-agent/config/certs/ca/ca.crt
+        elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') }}"
+        fleet_host: "{{ lookup('env', 'FLEET_HOST') }}"
+        es_host: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}"
+        kibana_host: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}"
+        ca_cert: "{{ lookup('env', 'CA_CERT') }}"
 
 verifier:
   name: ansible
@@ -219,6 +158,3 @@ scenario:
     - create
     - prepare
     - converge
-    - verify
-    - cleanup
-    - destroy

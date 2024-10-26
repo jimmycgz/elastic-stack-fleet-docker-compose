@@ -1,14 +1,13 @@
 ---
 - name: Converge
-  hosts: all
+  hosts: elastic_agents
   tasks:
     - name: Include es-agent role
       include_role:
         name: es-agent
       vars:
-        elastic_agent:
-          version: "8.15.2"
-          fleet_url: "{{ fleet_host }}"
-          elasticsearch_host: "{{ es_host }}"
-          kibana_host: "{{ kibana_host }}"
-          ca_cert: "/elk-stack/certs/ca/ca.crt"
+        elastic_stack_version: "{{ lookup('env', 'STACK_VERSION') }}"
+        fleet_host: "{{ fleet_host }}"
+        elasticsearch_host: "{{ es_host }}"
+        elastic_password: "{{ elastic_password }}"
+        ca_cert: "{{ ca_cert }}"

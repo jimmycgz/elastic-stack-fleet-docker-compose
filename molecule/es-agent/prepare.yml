@@ -1,44 +1,79 @@
 ---
-- name: Create shared directories
+- name: Prepare
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Check if .env file exists
+      stat:
+        path: /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env
+      register: env_file
+
+    - name: Fail if .env doesn't exist
+      fail:
+        msg: ".env file not found in /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env"
+      when: not env_file.stat.exists
+
+    - name: Clean up old shared certificates directory
+      file:
+        path: shared-certs
+        state: absent
+
     - name: Create shared certificates directory
       file:
-        path: "{{ molecule_ephemeral_directory }}/shared-certs"
+        path: shared-certs
         state: directory
         mode: '0777'
       register: certs_dir
 
-    - name: Debug shared directory
+    - name: Debug shared directory creation
       debug:
-        var: certs_dir
+        msg: "Created shared certificates directory at {{ certs_dir.path }}"
+
+    - name: Debug environment
+      debug:
+        msg: 
+          - "Working directory: {{ lookup('env', 'PWD') }}"
+          - "Environment file exists: {{ env_file.stat.exists }}"
+
+    - name: Wait for elastic-setup container to complete
+      command: docker logs elastic-setup
+      register: setup_logs
+      until: "'Setup completed successfully!' in setup_logs.stdout"
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Check certificate files
+      command: "ls -la shared-certs"
+      register: cert_files
+      changed_when: false
+
+    - name: Debug certificate files
+      debug:
+        msg: "Certificate files:\n{{ cert_files.stdout_lines }}"
+
+    - name: Display elastic-setup logs on failure
+      when: setup_logs.failed is defined and setup_logs.failed
+      block:
+        - name: Get full elastic-setup logs
+          command: docker logs elastic-setup
+          register: full_logs
+          changed_when: false
+
+        - name: Display full logs
+          debug:
+            msg: "Elastic setup logs:\n{{ full_logs.stdout_lines }}"
+
+        - name: Fail with error message
+          fail:
+            msg: "Elastic setup container failed. Check the logs above for details."
 
 - name: Prepare test environment
   hosts: elastic_agents
   gather_facts: false
+  vars_files:
+    - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env
   tasks:
-    - name: Debug - Check container status
-      command: docker ps -a
-      register: docker_ps
-      changed_when: false
-      delegate_to: localhost
-
-    - name: Debug - Show container status
-      debug:
-        var: docker_ps.stdout_lines
-
-    - name: Wait for elastic-setup to complete
-      command: docker logs -f elastic-setup
-      register: setup_logs
-      changed_when: false
-      delegate_to: localhost
-
-    - name: Debug - Show setup logs
-      debug:
-        var: setup_logs.stdout_lines
-      when: setup_logs is defined
-
     - name: Install required packages
       apt:
         name:
@@ -50,77 +85,62 @@
         update_cache: yes
       become: true
 
-    # - name: Wait for Elasticsearch to be ready
-    #   uri:
-    #     url: "{{ es_host }}/_cluster/health"
-    #     method: GET
-    #     user: elastic
-    #     password: "{{ elastic_password }}"
-    #     force_basic_auth: true
-    #     return_content: yes
-    #     validate_certs: no
-    #     status_code: [200, 401, 503]
-    #   register: result
-    #   until: >
-    #     result.status == 200 and
-    #     'status' in (result.content | from_json) and
-    #     ((result.content | from_json).status == 'green' or
-    #      (result.content | from_json).status == 'yellow')
-    #   retries: 30
-    #   delay: 10
-    #   ignore_errors: yes
+    - name: Wait for Elasticsearch to be ready
+      uri:
+        url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}/_cluster/health"
+        method: GET
+        user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
+        password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        force_basic_auth: true
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 401, 503]
+      register: result
+      until: >
+        result.status == 200 and
+        'status' in (result.content | from_json) and
+        ((result.content | from_json).status == 'green' or
+         (result.content | from_json).status == 'yellow')
+      retries: 30
+      delay: 10
 
-    # - name: Debug - Show Elasticsearch response
-    #   debug:
-    #     var: result
+    - name: Wait for Kibana to be ready
+      uri:
+        url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}/api/status"
+        method: GET
+        user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
+        password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        force_basic_auth: true
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 401, 503]
+      register: result
+      until: >
+        result.status == 200 and
+        'status' in (result.content | from_json) and
+        (result.content | from_json).status.overall.level == 'available'
+      retries: 30
+      delay: 10
 
-    # - name: Wait for Kibana to be ready
-    #   uri:
-    #     url: "{{ kibana_host }}/api/status"
-    #     method: GET
-    #     user: elastic
-    #     password: "{{ elastic_password }}"
-    #     force_basic_auth: true
-    #     return_content: yes
-    #     validate_certs: no
-    #     status_code: [200, 401, 503]
-    #   register: result
-    #   until: >
-    #     result.status == 200 and
-    #     'status' in (result.content | from_json) and
-    #     (result.content | from_json).status.overall.level == 'available'
-    #   retries: 30
-    #   delay: 10
-    #   ignore_errors: yes
+    - name: Wait for Fleet Server to be ready
+      uri:
+        url: "{{ lookup('env', 'FLEET_HOST') }}/api/status"
+        method: GET
+        user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
+        password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        force_basic_auth: true
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 404, 503]
+      register: result
+      until: result.status in [200, 404]
+      retries: 30
+      delay: 10
 
-    # - name: Debug - Show Kibana response
-    #   debug:
-    #     var: result
-
-    # - name: Wait for Fleet Server to be ready
-    #   uri:
-    #     url: "{{ fleet_host }}/api/status"
-    #     method: GET
-    #     user: elastic
-    #     password: "{{ elastic_password }}"
-    #     force_basic_auth: true
-    #     return_content: yes
-    #     validate_certs: no
-    #     status_code: [200, 404, 503]
-    #   register: result
-    #   until: result.status in [200, 404]
-    #   retries: 30
-    #   delay: 10
-    #   ignore_errors: yes
-
-    # - name: Debug - Show Fleet Server response
-    #   debug:
-    #     var: result
-
-    # - name: Debug - Show service status
-    #   debug:
-    #     msg: "Service {{ item.name }} is ready"
-    #   loop:
-    #     - { name: "Elasticsearch", url: "{{ es_host }}" }
-    #     - { name: "Kibana", url: "{{ kibana_host }}" }
-    #     - { name: "Fleet Server", url: "{{ fleet_host }}" }
+    - name: Debug service info
+      debug:
+        msg: "Service {{ item.name }} info - URL: {{ item.url }}"
+      loop:
+        - { name: "Elasticsearch", url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}" }
+        - { name: "Kibana", url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}" }
+        - { name: "Fleet Server", url: "{{ lookup('env', 'FLEET_HOST') }}" }
