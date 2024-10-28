@@ -1,14 +1,14 @@
----
-- name: Cleanup
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Remove shared certificates directory
-      file:
-        path: shared-certs
-        state: absent
-      ignore_errors: true
+# ---
+# - name: Cleanup
+#   hosts: localhost
+#   gather_facts: false
+#   tasks:
+#     - name: Remove shared certificates directory
+#       file:
+#         path: shared-certs
+#         state: absent
+#       ignore_errors: true
 
-    - name: Debug cleanup
-      debug:
-        msg: "Cleaned up shared certificates directory"
+#     - name: Debug cleanup
+#       debug:
+#         msg: "Cleaned up shared certificates directory"

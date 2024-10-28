@@ -22,9 +22,15 @@ platforms:
       bash -c '
         source /usr/share/elasticsearch/pre-stack/.env
         bash -x /usr/share/elasticsearch/pre-stack/elastic-stack-init.sh
+        sleep 5
       '
+    healthcheck:
+      test: ["CMD-SHELL", "test -f config/certs/elasticsearch/elasticsearch.crt"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
     volumes:
-      - ./shared-certs:/usr/share/elasticsearch/config/certs:rw
+      - certs:/usr/share/elasticsearch/config/certs
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
     network_mode: elastic
 
@@ -33,27 +39,67 @@ platforms:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
     pre_build_image: true
     hostname: elasticsearch
+    depends_on: # Looks like doesn't work on molecule, while worked on docker compose
+      elastic-setup:
+        condition: service_healthy    
+    entrypoint: []
+    working_dir: /usr/share/elasticsearch    
     command: |
       bash -c '
-        source /usr/share/elasticsearch/pre-stack/.env &&
-        rm -rf /usr/share/elasticsearch/config/certs &&
-        cp -r /usr/share/elasticsearch/shared-certs /usr/share/elasticsearch/config/certs &&
-        chown -R elasticsearch:root /usr/share/elasticsearch/config/certs &&
-        echo "Starting Elasticsearch manually" &&
-        /usr/local/bin/docker-entrypoint.sh
+
+        # sleep infinity
+
+        # Check for both cert and completion flag
+        until [ -f /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.crt ] && [ -f /usr/share/elasticsearch/config/certs/setup.complete ]; do
+          echo "Waiting for certificates to be generated..."
+          sleep 5
+        done
+
+        # Add a small delay after cert detection
+        sleep 90      
+
+        source /usr/share/elasticsearch/pre-stack/.env
+
+        # Create keystore non-interactively
+        /usr/share/elasticsearch/bin/elasticsearch-keystore create --silent
+        
+        # Add bootstrap password non-interactively
+        echo "${ELASTIC_PASSWORD}" | /usr/share/elasticsearch/bin/elasticsearch-keystore add -f -x bootstrap.password
+
+        # Verify keystore contents
+        /usr/share/elasticsearch/bin/elasticsearch-keystore list        
+        
+        # Convert environment variables to ES settings format
+        ES_OPTS="-Expack.security.autoconfiguration.enabled=false \
+                -Expack.security.enabled=true \
+                -Expack.security.http.ssl.enabled=true \
+                -Expack.security.http.ssl.key=certs/elasticsearch/elasticsearch.key \
+                -Expack.security.http.ssl.certificate=certs/elasticsearch/elasticsearch.crt \
+                -Expack.security.http.ssl.certificate_authorities=certs/ca/ca.crt \
+                -Expack.security.http.ssl.verification_mode=certificate \
+                -Expack.security.transport.ssl.enabled=true \
+                -Expack.security.transport.ssl.key=certs/elasticsearch/elasticsearch.key \
+                -Expack.security.transport.ssl.certificate=certs/elasticsearch/elasticsearch.crt \
+                -Expack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt \
+                -Expack.security.transport.ssl.verification_mode=certificate \
+                -Expack.license.self_generated.type=${LICENSE:-trial} \
+                -Epath.data=/usr/share/elasticsearch/data \
+                -Epath.logs=/usr/share/elasticsearch/logs \
+                -Ediscovery.type=single-node \
+                -Enetwork.host=0.0.0.0 \
+                -Ebootstrap.memory_lock=true \
+                -Ecluster.name=${CLUSTER_NAME:-docker-cluster} \
+                -Enode.name=${NODE_NAME:-elasticsearch}"
+        
+        exec /usr/local/bin/docker-entrypoint.sh elasticsearch ${ES_OPTS}
       '
+    privileged: true
     volumes:
-      - ./shared-certs:/usr/share/elasticsearch/shared-certs:ro
+      - certs:/usr/share/elasticsearch/config/certs  # Should Mount as read-only
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    tmpfs:
-      - /usr/share/elasticsearch/config/certs:uid=1000,gid=0
-    environment:
-      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
-      discovery.type: single-node
-    mem_limit: ${MEM_LIMIT:-1g}
-    ports:
-      - "${ES_PORT:-9200}:9200"
     network_mode: elastic
+    ports:
+      - "9200:9200"
 
   - name: kibana
     image: docker.elastic.co/kibana/kibana:8.15.2
@@ -61,20 +107,40 @@ platforms:
     hostname: kibana
     command: |
       bash -c '
-        source /usr/share/elasticsearch/pre-stack/.env &&
-        rm -rf /usr/share/kibana/config/certs &&
-        cp -r /usr/share/kibana/shared-certs /usr/share/kibana/config/certs &&
-        chown -R kibana:root /usr/share/kibana/config/certs &&
+        
+        # Source .env file but only extract needed variables
+        set -a  # automatically export all variables
+        source /usr/share/elasticsearch/pre-stack/.env
+        set +a  # stop automatically exporting
+        
+        # Create a filtered environment file for Kibana
+        # Create environment config file
+        echo -ne \
+        "ELASTICSEARCH_HOSTS=https://elasticsearch:9200\n"\
+        "ELASTICSEARCH_USERNAME=kibana_system\n"\
+        "ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}\n"\
+        "ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt\n"\
+        "SERVER_SSL_ENABLED=true\n"\
+        "SERVER_SSL_CERTIFICATE=/usr/share/kibana/config/certs/kibana/kibana.crt\n"\
+        "SERVER_SSL_KEY=/usr/share/kibana/config/certs/kibana/kibana.key\n"\
+        "SERVER_NAME=${KIBANA_SERVER_NAME:-kibana}\n"\
+        "XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${XPACK_ENCRYPTEDSAVEDOBJECTS_KEY}\n"\
+        "XPACK_FLEET_AGENTS_ENABLED=true\n"\
+        "XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=[\"${FLEET_HOST}\"]"\
+        > /tmp/kibana.env
+
+        # Source only the Kibana-specific variables
+        source /tmp/kibana.env
+
+        cp /usr/share/elasticsearch/pre-stack/kibana.yml /usr/share/kibana/config/kibana.yml &&
         /usr/local/bin/kibana-docker
       '
     volumes:
-      - ./shared-certs:/usr/share/kibana/shared-certs:ro
+      - certs:/usr/share/elasticsearch/config/certs
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    tmpfs:
-      - /usr/share/kibana/config/certs:uid=1000,gid=0
     mem_limit: ${MEM_LIMIT:-512m}
-    ports:
-      - "${KIBANA_PORT:-5601}:5601"
+    published_ports:
+      - 0.0.0.0:5601:5601/tcp  
     network_mode: elastic
     depends_on:
       - elasticsearch
@@ -92,16 +158,13 @@ platforms:
     command: |
       bash -c '
         source /usr/share/elasticsearch/pre-stack/.env &&
-        rm -rf /usr/share/elastic-agent/config/certs &&
-        cp -r /usr/share/elastic-agent/shared-certs /usr/share/elastic-agent/config/certs &&
-        chown -R root:root /usr/share/elastic-agent/config/certs &&
         /usr/local/bin/docker-entrypoint.sh
       '
     volumes:
-      - ./shared-certs:/usr/share/elastic-agent/shared-certs:ro
+      - certs:/usr/share/elasticsearch/config/certs
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    tmpfs:
-      - /usr/share/elastic-agent/config/certs:uid=0,gid=0
+    # tmpfs:
+      # - /usr/share/elastic-agent/config/certs:uid=0,gid=0
     mem_limit: ${MEM_LIMIT:-512m}
     ports:
       - "${FLEET_PORT:-8220}:8220"
@@ -120,11 +183,17 @@ platforms:
       - python3-pip
       - curl
       - ca-certificates
+    command: |
+      bash -c '
+        apt update 
+        apt install -y curl
+        sleep infinity
+      '
     volumes:
-      - ./shared-certs:/usr/share/elastic-agent/shared-certs:ro
+      - certs:/usr/share/elasticsearch/config/certs
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    tmpfs:
-      - /usr/share/elastic-agent/config/certs:uid=0,gid=0
+    # tmpfs:
+      # - /usr/share/elastic-agent/config/certs:uid=0,gid=0
     network_mode: elastic
     groups:
       - elastic_agents
@@ -153,7 +222,7 @@ verifier:
 scenario:
   test_sequence:
     - dependency
-    - cleanup
+    # - cleanup
     - destroy
     - create
     - prepare

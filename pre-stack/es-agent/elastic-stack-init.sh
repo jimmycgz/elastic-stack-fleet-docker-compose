@@ -104,6 +104,12 @@ EOF
             echo "Error: Failed to unzip service certificates"
             return 1
         fi
+
+
+        # Add explicit touch of a flag file after setup is complete
+        sleep 5
+        touch /usr/share/elasticsearch/config/certs/setup.complete
+
     else
         echo "Service certificates already exist"
     fi
@@ -112,7 +118,7 @@ EOF
 # Set proper file permissions
 set_permissions() {
     echo "Setting file permissions..."
-    if ! find . -type d -exec chmod 750 {} \; || ! find . -type f -exec chmod 640 {} \;; then
+    if ! chown -R root:root config/certs || ! find config/certs -type d -exec chmod 750 {} \; || ! find config/certs -type f -exec chmod 640 {} \;; then
         echo "Error: Failed to set file permissions"
         return 1
     fi
