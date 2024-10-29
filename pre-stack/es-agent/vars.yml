@@ -15,7 +15,7 @@ kibana_fleet_host: https://kibana:5601
 fleet_port: 8220
 fleet_host: https://fleet-server:8220
 fleet_server_host: https://fleet-server:8220
-# fleet_server_service_token: AAEAAWVsYXN0aWMvZmxlZXQtc2VydmVyL3Rva2VuLTE2OTg1MjYxMDA6NEVzODFrSzVRX21tdTF3WFNFRjlMZw
+# fleet_server_service_token: token
 
 # Stack Configuration
 stack_version: 8.15.2
