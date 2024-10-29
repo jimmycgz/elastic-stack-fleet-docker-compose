@@ -24,30 +24,33 @@ else
     export KIBANA_PASSWORD=${KIBANA_PASSWORD:-elastic}
 fi
 
-# Create Kibana configuration
-cat > /usr/share/kibana/config/kibana.yml << EOL
-server.host: "0.0.0.0"
-server.name: kibana
-server.ssl.enabled: true
-server.ssl.certificate: /usr/share/kibana/config/certs/kibana/kibana.crt
-server.ssl.key: /usr/share/kibana/config/certs/kibana/kibana.key
-elasticsearch.hosts: ["https://elasticsearch:9200"]
-elasticsearch.username: "kibana_system"
-elasticsearch.password: "${KIBANA_PASSWORD}"
-elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca/ca.crt"]
-elasticsearch.ssl.verificationMode: certificate
-xpack.encryptedSavedObjects.encryptionKey: "abc45678901234567890123456789012"
-xpack.fleet.enabled: true
-xpack.fleet.agents.enabled: true
-xpack.fleet.agents.fleet_server.hosts: ["https://fleet-server:8220"]
-xpack.actions.preconfiguredAlertHistoryESIndex: true
-xpack.security.encryptionKey: "${KIBANA_PASSWORD}"
-xpack.reporting.encryptionKey: "${KIBANA_PASSWORD}"
-EOL
+# Set environment variables for Kibana
+export SERVERNAME=kibana
+export ELASTICSEARCH_HOSTS=https://elasticsearch:9200
+export ELASTICSEARCH_USERNAME=kibana_system
+export ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+export ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
+export SERVER_SSL_ENABLED=true
+export SERVER_SSL_KEY=config/certs/kibana/kibana.key
+export SERVER_SSL_CERTIFICATE=config/certs/kibana/kibana.crt
+export XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=abc45678901234567890123456789012
+export XPACK_ACTIONS_PRECONFIGUREDALERTHISTORYESINDEX=true
 
-# Replace environment variables in config
-envsubst < /usr/share/kibana/config/kibana.yml > /usr/share/kibana/config/kibana.yml.tmp && \
-mv /usr/share/kibana/config/kibana.yml.tmp /usr/share/kibana/config/kibana.yml
+export KIBANA_FLEET_SETUP=1
+export KIBANA_FLEET_HOST=https://kibana:5601
+export KIBANA_FLEET_USERNAME=kibana_system
+export KIBANA_FLEET_PASSWORD=${KIBANA_PASSWORD}
+export KIBANA_FLEET_CA=/usr/share/kibana/config/certs/ca/ca.crt
+
+export XPACK_FLEET_ENABLED=true
+export XPACK_FLEET_AGENTS_ENABLED=true
+export XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=["${FLEET_HOST:-https://fleet-server:8220}"]
+export ES_URL=${ES_URL:-https://elasticsearch:9200}
+
+# Copy base configuration if it exists
+if [ -f /usr/share/kibana/pre-stack/es-agent/kibana.yml ]; then
+    cp /usr/share/kibana/pre-stack/es-agent/kibana.yml /usr/share/kibana/config/kibana.yml
+fi
 
 # Start Kibana
 exec /usr/local/bin/kibana-docker
