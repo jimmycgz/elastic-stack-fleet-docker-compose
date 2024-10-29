@@ -32,31 +32,39 @@ platforms:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    network_mode: elastic
+    networks:
+      - name: elastic
 
   # Elasticsearch container
   - name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
     pre_build_image: true
     hostname: elasticsearch
-    depends_on: # Looks like doesn't work on molecule, while worked on docker compose
+    depends_on:
       elastic-setup:
         condition: service_healthy    
     entrypoint: []
     working_dir: /usr/share/elasticsearch    
     command: |
       bash -c '
-
-        # sleep infinity
-
-        # Check for both cert and completion flag
-        until [ -f /usr/share/elasticsearch/config/certs/elasticsearch/elasticsearch.crt ] && [ -f /usr/share/elasticsearch/config/certs/setup.complete ]; do
+        # Create a temporary directory for certificates
+        mkdir -p /usr/share/elasticsearch/config/certs.temp
+        
+        # Wait for certificates
+        until [ -f /usr/share/elasticsearch/config/certs.ro/elasticsearch/elasticsearch.crt ] && [ -f /usr/share/elasticsearch/config/certs.ro/setup.complete ]; do
           echo "Waiting for certificates to be generated..."
           sleep 5
         done
 
         # Add a small delay after cert detection
-        sleep 90      
+        sleep 10
+
+        # Copy certificates to temp directory first
+        cp -r /usr/share/elasticsearch/config/certs.ro/* /usr/share/elasticsearch/config/certs.temp/
+
+        # Then move the temp directory to final location
+        rm -rf /usr/share/elasticsearch/config/certs
+        mv /usr/share/elasticsearch/config/certs.temp /usr/share/elasticsearch/config/certs
 
         source /usr/share/elasticsearch/pre-stack/.env
 
@@ -64,6 +72,7 @@ platforms:
         /usr/share/elasticsearch/bin/elasticsearch-keystore create --silent
         
         # Add bootstrap password non-interactively
+        echo "Adding password to the bootstrap.password keystore: ${ELASTIC_PASSWORD}"
         echo "${ELASTIC_PASSWORD}" | /usr/share/elasticsearch/bin/elasticsearch-keystore add -f -x bootstrap.password
 
         # Verify keystore contents
@@ -95,9 +104,10 @@ platforms:
       '
     privileged: true
     volumes:
-      - certs:/usr/share/elasticsearch/config/certs  # Should Mount as read-only
-      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    network_mode: elastic
+      - 'certs:/usr/share/elasticsearch/config/certs.ro:ro'
+      - '/workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro'
+    networks:
+      - name: elastic
     ports:
       - "9200:9200"
 
@@ -107,13 +117,8 @@ platforms:
     hostname: kibana
     command: |
       bash -c '
-        
-        # Source .env file but only extract needed variables
-        set -a  # automatically export all variables
         source /usr/share/elasticsearch/pre-stack/.env
-        set +a  # stop automatically exporting
         
-        # Create a filtered environment file for Kibana
         # Create environment config file
         echo -ne \
         "ELASTICSEARCH_HOSTS=https://elasticsearch:9200\n"\
@@ -127,9 +132,11 @@ platforms:
         "XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${XPACK_ENCRYPTEDSAVEDOBJECTS_KEY}\n"\
         "XPACK_FLEET_AGENTS_ENABLED=true\n"\
         "XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS=[\"${FLEET_HOST}\"]"\
+        "XPACK_ACTIONS_PRECONFIGUREDALERTHISTORYESINDEX=true\n"\
+        "XPACK_ACTIONS_PRECONFIGURED={}\n"\
         > /tmp/kibana.env
 
-        # Source only the Kibana-specific variables
+        # Source the config
         source /tmp/kibana.env
 
         cp /usr/share/elasticsearch/pre-stack/kibana.yml /usr/share/kibana/config/kibana.yml &&
@@ -168,7 +175,8 @@ platforms:
     mem_limit: ${MEM_LIMIT:-512m}
     ports:
       - "${FLEET_PORT:-8220}:8220"
-    network_mode: elastic
+    networks:
+      - name: elastic
     depends_on:
       - elasticsearch
       - kibana
@@ -192,9 +200,8 @@ platforms:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
-    # tmpfs:
-      # - /usr/share/elastic-agent/config/certs:uid=0,gid=0
-    network_mode: elastic
+    networks:
+      - name: elastic
     groups:
       - elastic_agents
     depends_on:

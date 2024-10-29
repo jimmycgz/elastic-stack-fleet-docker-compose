@@ -3,8 +3,8 @@
 # Configure git safe directory
 git config --global --add safe.directory /workspaces/elastic-stack-fleet-docker-compose
 
-# Install gcloud
-curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-454.0.0-linux-x86_64.tar.gz && tar -xf google-cloud-cli-454.0.0-linux-x86_64.tar.gz && ./google-cloud-sdk/install.sh --quiet
+# Install gcloud, takes too long time, may install manually
+# curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-454.0.0-linux-x86_64.tar.gz && tar -xf google-cloud-cli-454.0.0-linux-x86_64.tar.gz && ./google-cloud-sdk/install.sh --quiet
 
 # Add aliases
 cat << EOF >> ~/.bashrc
