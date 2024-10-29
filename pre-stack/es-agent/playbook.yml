@@ -30,5 +30,7 @@
   hosts: elastic_agents
   vars:
     ansible_remote_tmp: /tmp/.ansible
+  vars_files:
+    - vars.yml
   roles:
     - ../../roles/es-agent

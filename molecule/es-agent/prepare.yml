@@ -2,17 +2,9 @@
 - name: Prepare
   hosts: localhost
   gather_facts: false
+  vars_files:
+    - "../../roles/es-agent/vars.yml"
   tasks:
-    - name: Check if .env file exists
-      stat:
-        path: /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env
-      register: env_file
-
-    - name: Fail if .env doesn't exist
-      fail:
-        msg: ".env file not found in /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env"
-      when: not env_file.stat.exists
-
     - name: Clean up old shared certificates directory
       file:
         path: shared-certs
@@ -33,7 +25,7 @@
       debug:
         msg: 
           - "Working directory: {{ lookup('env', 'PWD') }}"
-          - "Environment file exists: {{ env_file.stat.exists }}"
+          - "Variables file: ../../roles/es-agent/vars.yml"
 
     - name: Wait for elastic-setup container to complete
       command: docker logs elastic-setup
@@ -72,7 +64,7 @@
   hosts: elastic_agents
   gather_facts: false
   vars_files:
-    - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env
+    - "../../roles/es-agent/vars.yml"
   tasks:
     - name: Install required packages
       apt:
@@ -87,10 +79,10 @@
 
     - name: Wait for Elasticsearch to be ready
       uri:
-        url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}/_cluster/health"
+        url: "{{ elasticsearch_host }}/_cluster/health"
         method: GET
-        user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
-        password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        user: "{{ elasticsearch_username }}"
+        password: "{{ elastic_password }}"
         force_basic_auth: true
         return_content: yes
         validate_certs: no
@@ -106,10 +98,10 @@
 
     - name: Wait for Kibana to be ready
       uri:
-        url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}/api/status"
+        url: "{{ kibana_fleet_host }}/api/status"
         method: GET
-        user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
-        password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        user: "{{ elasticsearch_username }}"
+        password: "{{ elastic_password }}"
         force_basic_auth: true
         return_content: yes
         validate_certs: no
@@ -124,10 +116,10 @@
 
     - name: Wait for Fleet Server to be ready
       uri:
-        url: "{{ lookup('env', 'FLEET_HOST') }}/api/status"
+        url: "{{ fleet_host }}/api/status"
         method: GET
-        user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
-        password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
+        user: "{{ elasticsearch_username }}"
+        password: "{{ elastic_password }}"
         force_basic_auth: true
         return_content: yes
         validate_certs: no
@@ -141,6 +133,7 @@
       debug:
         msg: "Service {{ item.name }} info - URL: {{ item.url }}"
       loop:
-        - { name: "Elasticsearch", url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}" }
-        - { name: "Kibana", url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}" }
-        - { name: "Fleet Server", url: "{{ lookup('env', 'FLEET_HOST') }}" }
+        - { name: "Elasticsearch", url: "{{ elasticsearch_host }}" }
+        - { name: "Kibana", url: "{{ kibana_fleet_host }}" }
+        - { name: "Fleet Server", url: "{{ fleet_host }}" }
+        

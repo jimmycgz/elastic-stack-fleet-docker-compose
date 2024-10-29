@@ -1,0 +1,29 @@
+---
+# Elasticsearch Configuration
+elastic_password: elastic
+elasticsearch_username: elastic
+elasticsearch_host: https://elasticsearch:9200
+es_port: 9200
+
+# Kibana Configuration
+kibana_port: 5601
+kibana_password: elastic
+kibana_elasticsearch_hosts: https://elasticsearch:9200
+kibana_fleet_host: https://kibana:5601
+
+# Fleet Configuration
+fleet_port: 8220
+fleet_host: https://fleet-server:8220
+fleet_server_host: https://fleet-server:8220
+# fleet_server_service_token: AAEAAWVsYXN0aWMvZmxlZXQtc2VydmVyL3Rva2VuLTE2OTg1MjYxMDA6NEVzODFrSzVRX21tdTF3WFNFRjlMZw
+
+# Stack Configuration
+stack_version: 8.15.2
+cluster_name: docker-cluster
+license: trial
+
+# Resource Configuration
+mem_limit: 1g
+
+# Certificate Paths
+ca_cert: /usr/share/elasticsearch/config/certs/ca/ca.crt
