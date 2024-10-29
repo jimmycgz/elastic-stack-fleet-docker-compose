@@ -17,28 +17,49 @@ handle_error() {
 # Set up error trap
 trap 'handle_error ${LINENO}' ERR
 
-# Initialize environment variables
+# Initialize environment variables from vars.yml
 init_environment() {
     echo "Initializing environment..."
-    if [ ! -f /usr/share/elasticsearch/pre-stack/.env ]; then
-        echo "Error: .env file not found at /usr/share/elasticsearch/pre-stack/.env"
+    VARS_FILE="/usr/share/elasticsearch/pre-stack/vars.yml"
+    
+    if [ ! -f "$VARS_FILE" ]; then
+        echo "Error: vars.yml file not found at $VARS_FILE"
         ls -la /usr/share/elasticsearch/pre-stack/
         return 1
     fi
 
-    source /usr/share/elasticsearch/pre-stack/.env
-    echo "Starting setup with ELASTIC_PASSWORD=$ELASTIC_PASSWORD"
+    # Parse YAML using Python (since Python is available in the container)
+    python3 -c '
+import yaml
+import os
+with open("'$VARS_FILE'") as f:
+    vars = yaml.safe_load(f)
+    
+# Export variables to environment
+for key, value in vars.items():
+    print(f"export {key}={value}")
+' > /tmp/vars_env
+
+    source /tmp/vars_env
+    echo "Starting setup with ELASTIC_PASSWORD=$elastic_password"
 
     # Validate required environment variables
-    if [ -z "$ELASTIC_PASSWORD" ]; then
-        echo "Error: ELASTIC_PASSWORD is not set in .env file"
+    if [ -z "$elastic_password" ]; then
+        echo "Error: elastic_password is not set in vars.yml file"
         return 1
     fi
 
-    if [ -z "$KIBANA_PASSWORD" ]; then
-        echo "Error: KIBANA_PASSWORD is not set in .env file"
+    if [ -z "$kibana_password" ]; then
+        echo "Error: kibana_password is not set in vars.yml file"
         return 1
     fi
+
+    # Set traditional environment variables for compatibility
+    export ELASTIC_PASSWORD="$elastic_password"
+    export KIBANA_PASSWORD="$kibana_password"
+    export ELASTICSEARCH_HOST="$elasticsearch_host"
+    export KIBANA_FLEET_HOST="$kibana_fleet_host"
+    export FLEET_HOST="$fleet_host"
 }
 
 # Generate CA certificate
@@ -105,11 +126,9 @@ EOF
             return 1
         fi
 
-
         # Add explicit touch of a flag file after setup is complete
         sleep 5
         touch /usr/share/elasticsearch/config/certs/setup.complete
-
     else
         echo "Service certificates already exist"
     fi
