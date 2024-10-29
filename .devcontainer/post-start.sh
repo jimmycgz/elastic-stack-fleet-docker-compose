@@ -27,6 +27,10 @@ alias gb='git branch'
 alias gc='git checkout'
 alias gst='git status'
 alias gp='git push'
+
+alias ml='molecule'
+alias mlt='molecule test'
+alias mltes='molecule test -s es-agent'
 EOF
 
 echo "Aliases have been added to .bashrc"
