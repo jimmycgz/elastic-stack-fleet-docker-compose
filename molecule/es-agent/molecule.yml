@@ -118,6 +118,7 @@ platforms:
     ports:
       - "9200:9200"
 
+  # Kibana container
   - name: kibana
     image: docker.elastic.co/kibana/kibana:8.15.2
     pre_build_image: true
@@ -149,50 +150,83 @@ platforms:
       timeout: 10s
       retries: 120
 
-  # Test instance for es-agent deployment
+  # Fleet Server container
+  - name: fleet-server
+    image: docker.elastic.co/beats/elastic-agent:8.15.2
+    pre_build_image: true
+    hostname: fleet-server
+    user: root
+    command: elastic-agent container
+    env:
+      FLEET_SERVER_ENABLE: "1"
+      FLEET_SERVER_ELASTICSEARCH_HOST: "https://elasticsearch:9200"
+      FLEET_SERVER_ELASTICSEARCH_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      FLEET_SERVER_CERT: "/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt"
+      FLEET_SERVER_CERT_KEY: "/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key"
+      FLEET_SERVER_HOST: "0.0.0.0"
+      FLEET_SERVER_PORT: "8220"
+      FLEET_SERVER_POLICY_ID: "fleet-server-policy"
+      FLEET_ENROLL: "1"
+      ELASTICSEARCH_USERNAME: "elastic"
+      ELASTICSEARCH_PASSWORD: "elastic"
+      KIBANA_FLEET_HOST: "https://kibana:5601"
+      KIBANA_FLEET_USERNAME: "elastic"
+      KIBANA_FLEET_PASSWORD: "elastic"
+      KIBANA_FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      FLEET_URL: "https://fleet-server:8220"
+    volumes:
+      - certs:/usr/share/elastic-agent/config/certs:ro
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elastic-agent/pre-stack/es-agent:ro
+    ports:
+      - "8220:8220"
+    networks:
+      - name: elastic
+    # depends_on:
+    #   - elasticsearch
+    #   - kibana
+
+  # Test instance
   - name: instance
     image: geerlingguy/docker-ubuntu2004-ansible
     pre_build_image: true
     privileged: true
-    packages:
-      - python3
-      - python3-pip
-      - curl
-      - ca-certificates
-    command: |
-      bash -c '
-        apt update 
-        apt install -y curl
-        sleep infinity
-      '
+    hostname: instance
     volumes:
-      - certs:/usr/share/elasticsearch/config/certs
+      - certs:/usr/share/elasticsearch/config/certs:ro
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
     networks:
       - name: elastic
     groups:
       - elastic_agents
-    depends_on:
-      - elasticsearch
-      - kibana
-      - fleet-server
+    command: sleep infinity
+    environment:
+      container: docker
+    tmpfs:
+      - /tmp:exec,mode=1777
+      - /run:exec,mode=1777
+    docker_host: "${DOCKER_HOST:-unix://var/run/docker.sock}"
+    capabilities:
+      - SYS_ADMIN
+    published_ports:
+      - 0:0/tcp
 
 provisioner:
   name: ansible
   env:
     ANSIBLE_ROLES_PATH: ../../roles
+    ANSIBLE_REMOTE_TMP: /tmp
   inventory:
     group_vars:
       all:
-        elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
-        kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') }}"
-        fleet_host: "{{ lookup('env', 'FLEET_HOST') }}"
-        es_host: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}"
-        kibana_host: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}"
-        ca_cert: "{{ lookup('env', 'CA_CERT') }}"
-
-verifier:
-  name: ansible
+        ansible_python_interpreter: /usr/bin/python3
+        ansible_remote_tmp: /tmp
+        elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('elastic', true) }}"
+        kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') | default('elastic', true) }}"
+        fleet_host: "{{ lookup('env', 'FLEET_HOST') | default('https://fleet-server:8220', true) }}"
+        es_host: "{{ lookup('env', 'ELASTICSEARCH_HOST') | default('https://elasticsearch:9200', true) }}"
+        kibana_host: "{{ lookup('env', 'KIBANA_FLEET_HOST') | default('https://kibana:5601', true) }}"
+        ca_cert: /usr/share/elasticsearch/config/certs/ca/ca.crt
+        stack_version: "{{ lookup('env', 'STACK_VERSION') | default('8.15.2', true) }}"
 
 scenario:
   test_sequence:
@@ -202,3 +236,4 @@ scenario:
     - create
     - prepare
     - converge
+    - destroy
