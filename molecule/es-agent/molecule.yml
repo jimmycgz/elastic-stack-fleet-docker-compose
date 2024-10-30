@@ -130,7 +130,7 @@ platforms:
     command: >-
       bash -c '
         # sleep infinity
-        bash -x /usr/share/elasticsearch/pre-stack/es-agent/kibana-startup.sh
+        bash -x /usr/share/kibana/pre-stack/es-agent/kibana-startup.sh
         sleep 5
       '
     volumes:
