@@ -195,7 +195,7 @@ platforms:
       - certs:/usr/share/elasticsearch/config/certs:ro
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
     networks:
-      - name: pre-stack_default
+      - name: elastic
     groups:
       - elastic_agents
     command: sleep infinity
