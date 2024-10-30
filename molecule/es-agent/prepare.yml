@@ -3,37 +3,6 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Check if .env file exists
-      stat:
-        path: /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env
-      register: env_file
-
-    - name: Fail if .env doesn't exist
-      fail:
-        msg: ".env file not found in /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env"
-      when: not env_file.stat.exists
-
-    - name: Clean up old shared certificates directory
-      file:
-        path: shared-certs
-        state: absent
-
-    - name: Create shared certificates directory
-      file:
-        path: shared-certs
-        state: directory
-        mode: '0777'
-      register: certs_dir
-
-    - name: Debug shared directory creation
-      debug:
-        msg: "Created shared certificates directory at {{ certs_dir.path }}"
-
-    - name: Debug environment
-      debug:
-        msg: 
-          - "Working directory: {{ lookup('env', 'PWD') }}"
-          - "Environment file exists: {{ env_file.stat.exists }}"
 
     - name: Wait for elastic-setup container to complete
       command: docker logs elastic-setup
@@ -44,7 +13,7 @@
       changed_when: false
 
     - name: Check certificate files
-      command: "ls -la shared-certs"
+      command: "ls -la certs"
       register: cert_files
       changed_when: false
 
