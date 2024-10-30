@@ -188,7 +188,6 @@ provisioner:
     group_vars:
       all:
         ansible_python_interpreter: /usr/bin/python3
-        ansible_python_interpreter: /usr/bin/python3
         elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('elastic', true) }}"
         kibana_password: "{{ lookup('env', 'KIBANA_PASSWORD') | default('elastic', true) }}"
         fleet_host: "{{ lookup('env', 'FLEET_HOST') | default('https://fleet-server:8220', true) }}"

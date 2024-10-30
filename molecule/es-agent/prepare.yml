@@ -42,53 +42,6 @@
       delay: 10
       until: apt_install is success
 
-    - name: Add Docker GPG apt Key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-
-    - name: Add Docker Repository
-      apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
-        state: present
-        update_cache: yes
-
-    - name: Install Docker packages
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - python3-docker
-        state: present
-        update_cache: yes
-      register: docker_install
-      retries: 5
-      delay: 10
-      until: docker_install is success
-
-    - name: Install Docker Python package
-      pip:
-        name: 
-          - docker
-          - docker-compose
-        state: present
-
-    - name: Ensure Docker is running
-      systemd:
-        name: docker
-        state: started
-        enabled: yes
-      register: docker_service
-      retries: 5
-      delay: 10
-      until: docker_service is success
-
-    - name: Ensure Docker socket has correct permissions
-      file:
-        path: /var/run/docker.sock
-        mode: '0666'
-
     - name: Remove existing elastic network if exists
       docker_network:
         name: elastic
@@ -106,10 +59,6 @@
     - name: Debug network creation
       debug:
         var: network_result
-
-    - name: Verify Docker is operational
-      command: docker ps
-      changed_when: false
 
     - name: Debug service info
       debug:
