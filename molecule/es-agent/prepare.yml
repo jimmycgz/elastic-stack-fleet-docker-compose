@@ -3,10 +3,10 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Wait for elastic-setup container to complete
+    - name: Wait for Certs generated from elastic-setup container
       command: docker logs elastic-setup
       register: setup_logs
-      until: "'Setting kibana_system password' in setup_logs.stdout"
+      until: "'Configuring kibana_system password...' in setup_logs.stdout"
       retries: 30
       delay: 10
       changed_when: false

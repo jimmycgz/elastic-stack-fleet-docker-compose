@@ -94,8 +94,8 @@ platforms:
       - '/workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack/es-agent:ro'
     networks:
       - name: elastic
-    ports:
-      - "9200:9200"
+    published_ports:
+      - 0.0.0.0:9200:9200/tcp 
 
   - name: kibana
     image: docker.elastic.co/kibana/kibana:8.15.2
@@ -119,6 +119,35 @@ platforms:
       - 0.0.0.0:5601:5601/tcp  
     networks:
       - name: elastic
+    env:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_NAME: "kibana"
+      SERVER_PUBLICBASEURL: "https://localhost:5601"
+      SERVER_SSL_ENABLED: "true"
+      SERVER_SSL_CERTIFICATE: "/usr/share/kibana/config/certs/kibana/kibana.crt"
+      SERVER_SSL_KEY: "/usr/share/kibana/config/certs/kibana/kibana.key"
+      SERVER_SSL_CERTIFICATEAUTHORITIES: "/usr/share/kibana/config/certs/ca/ca.crt"
+      ELASTICSEARCH_HOSTS: "https://elasticsearch:9200"
+      ELASTICSEARCH_USERNAME: "kibana_system"
+      ELASTICSEARCH_PASSWORD: "${KIBANA_PASSWORD:-elastic}"
+      ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES: "/usr/share/kibana/config/certs/ca/ca.crt"
+      ELASTICSEARCH_SSL_VERIFICATIONMODE: "certificate"
+      XPACK_SECURITY_ENCRYPTIONKEY: "xkb123456789012345678901234567890"
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: "xkb123456789012345678901234567890"
+      XPACK_REPORTING_ENCRYPTIONKEY: "xkb123456789012345678901234567890"
+      XPACK_FLEET_ENABLED: "true"
+      XPACK_FLEET_AGENTS_ENABLED: "true"
+      FLEET_SERVER_HOST: "${FLEET_HOST:-https://fleet-server:8220}"
+      XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS: '[\"https://fleet-server:8220\"]'
+      KIBANA_FLEET_SETUP: "1"
+      KIBANA_FLEET_HOST: "https://kibana:5601"
+      KIBANA_FLEET_USERNAME: "kibana_system"
+      KIBANA_FLEET_PASSWORD: "${KIBANA_PASSWORD:-elastic}"
+      KIBANA_FLEET_CA: "/usr/share/kibana/config/certs/ca/ca.crt"
+      XPACK_SECURITY_LOGINASSISTANCEMESSAGE: "Default credentials: elastic / elastic"
+      XPACK_SECURITY_SESSION_IDLETIMEOUT: "1h"
+      TELEMETRY_ENABLED: "false"
+      XPACK_REPORTING_CSV_MAXSIZEBYTES: "10485760"
     healthcheck:
       test: ["CMD-SHELL", "curl -s -I --cacert config/certs/ca/ca.crt https://localhost:5601 | grep -q 'HTTP/1.1 302 Found'"]
       interval: 10s
@@ -139,13 +168,14 @@ platforms:
         condition: service_healthy
     platform: linux/amd64
     container_name: fleet-server
-    restart: always
+    restart_policy: "on-failure"
+    restart_retries: "3"
     user: root
     command: elastic-agent container
     volumes:
       - certs:/usr/share/elastic-agent/config/certs:ro
-    ports:
-      - "${FLEET_PORT:-8220}:8220"
+    published_ports:
+      - 0.0.0.0:8220:8220/tcp
     networks:
       - name: elastic
     env:
@@ -157,19 +187,22 @@ platforms:
       FLEET_SERVER_HOST: "0.0.0.0"
       FLEET_SERVER_PORT: "8220"
       FLEET_SERVER_POLICY_ID: "fleet-server-policy"
-      FLEET_SERVER_SERVICE_TOKEN: "${FLEET_SERVER_SERVICE_TOKEN:-}"
       FLEET_ENROLL: "1"
       FLEET_URL: "https://fleet-server:8220"
       FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      KIBANA_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
       KIBANA_FLEET_SETUP: "1"
       KIBANA_FLEET_HOST: "https://kibana:5601"
-      KIBANA_FLEET_USERNAME: "elastic"
-      KIBANA_FLEET_PASSWORD: "${ELASTIC_PASSWORD:-elastic}"
+      KIBANA_HOST: "https://kibana:5601"
+      KIBANA_FLEET_USERNAME: "kibana_system"
+      KIBANA_FLEET_PASSWORD: "${KIBANA_PASSWORD:-elastic}"
       KIBANA_FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
       ELASTICSEARCH_HOST: "https://elasticsearch:9200"
-      ELASTICSEARCH_USERNAME: "elastic"
+      ELASTICSEARCH_USERNAME: "${ELASTICSEARCH_USERNAME:-elastic}"
       ELASTICSEARCH_PASSWORD: "${ELASTIC_PASSWORD:-elastic}"
       ELASTICSEARCH_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      KIBANA_REQUEST_RETRY_SLEEP: "5s"
+      KIBANA_REQUEST_RETRY_COUNT: "60"
     healthcheck:
       test: ["CMD-SHELL", "curl -s -I --cacert /usr/share/elastic-agent/config/certs/ca/ca.crt https://fleet-server:8220 | grep -q 'HTTP/2 404'"]
       interval: 10s
@@ -203,13 +236,8 @@ platforms:
       - elasticsearch
       - kibana
       - fleet-server
-    environment:
-      ELASTIC_PASSWORD: elastic
-      KIBANA_PASSWORD: elastic
-      FLEET_HOST: https://fleet-server:8220
-      ELASTICSEARCH_HOST: https://elasticsearch:9200
-      KIBANA_FLEET_HOST: https://kibana:5601
-      CA_CERT: /usr/share/elasticsearch/config/certs/ca/ca.crt
+    env:
+
 
 provisioner:
   name: ansible
