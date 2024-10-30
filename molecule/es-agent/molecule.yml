@@ -1,4 +1,131 @@
-# Add Fleet Server platform
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+    ignore-certs: true
+    ignore-errors: true
+
+driver:
+  name: docker
+
+platforms:
+  # Setup container for initial configuration
+  - name: elastic-setup
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
+    pre_build_image: true
+    hostname: elastic-setup
+    user: "0"
+    entrypoint: []
+    working_dir: /usr/share/elasticsearch
+    command: |
+      bash -c '
+        source /usr/share/elasticsearch/pre-stack/.env
+        bash -x /usr/share/elasticsearch/pre-stack/elastic-stack-init.sh
+        sleep 5
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "test -f config/certs/elasticsearch/elasticsearch.crt"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    networks:
+      - name: elastic
+
+  # Elasticsearch container
+  - name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
+    pre_build_image: true
+    hostname: elasticsearch
+    depends_on:
+      elastic-setup:
+        condition: service_completed_successfully
+    entrypoint: []
+    working_dir: /usr/share/elasticsearch    
+    command: |
+      bash -c '
+        until [ -f /usr/share/elasticsearch/config/certs.ro/elasticsearch/elasticsearch.crt ] && [ -f /usr/share/elasticsearch/config/certs.ro/setup.complete ]; do
+          echo "Waiting for certificates..."
+          sleep 5
+        done
+        sleep 10
+        ENV_FILE="/usr/share/elasticsearch/pre-stack/es-agent/.env"
+        if [ -f "$ENV_FILE" ]; then
+          source "$ENV_FILE"
+        fi
+        if [ -z "$ELASTIC_PASSWORD" ]; then
+          export ELASTIC_PASSWORD="elastic"
+        fi
+        /usr/share/elasticsearch/bin/elasticsearch-keystore create --silent
+        echo "elastic" | /usr/share/elasticsearch/bin/elasticsearch-keystore add -f -x bootstrap.password
+        /usr/share/elasticsearch/bin/elasticsearch-keystore list        
+        exec /usr/local/bin/docker-entrypoint.sh elasticsearch -Expack.security.autoconfiguration.enabled=false \
+          -Expack.security.enabled=true \
+          -Expack.security.http.ssl.enabled=true \
+          -Expack.security.http.ssl.key=certs.ro/elasticsearch/elasticsearch.key \
+          -Expack.security.http.ssl.certificate=certs.ro/elasticsearch/elasticsearch.crt \
+          -Expack.security.http.ssl.certificate_authorities=certs.ro/ca/ca.crt \
+          -Expack.security.http.ssl.verification_mode=certificate \
+          -Expack.security.transport.ssl.enabled=true \
+          -Expack.security.transport.ssl.key=certs.ro/elasticsearch/elasticsearch.key \
+          -Expack.security.transport.ssl.certificate=certs.ro/elasticsearch/elasticsearch.crt \
+          -Expack.security.transport.ssl.certificate_authorities=certs.ro/ca/ca.crt \
+          -Expack.security.transport.ssl.verification_mode=certificate \
+          -Elicense.self_generated.type=trial \
+          -Epath.data=/usr/share/elasticsearch/data \
+          -Epath.logs=/usr/share/elasticsearch/logs \
+          -Ediscovery.type=single-node \
+          -Enetwork.host=0.0.0.0 \
+          -Ebootstrap.memory_lock=true \
+          -Ecluster.name=docker-cluster \
+          -Enode.name=elasticsearch
+      '
+    privileged: true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s --cacert config/certs/ca/ca.crt https://localhost:9200/_cluster/health | grep -q 'status'"]
+      interval: 10s
+      timeout: 10s
+      retries: 120    
+    volumes:
+      - 'certs:/usr/share/elasticsearch/config/certs.ro:ro'
+      - '/workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack/es-agent:ro'
+    networks:
+      - name: elastic
+    ports:
+      - "9200:9200"
+
+  - name: kibana
+    image: docker.elastic.co/kibana/kibana:8.15.2
+    pre_build_image: true
+    hostname: kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    entrypoint: []
+    working_dir: /usr/share/kibana
+    command: >-
+      bash -c '
+        bash -x /usr/share/kibana/pre-stack/es-agent/kibana-startup.sh
+        sleep 5
+      '
+    volumes:
+      - certs:/usr/share/kibana/config/certs:ro
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/kibana/pre-stack/es-agent:ro
+    mem_limit: ${MEM_LIMIT:-512m}
+    published_ports:
+      - 0.0.0.0:5601:5601/tcp  
+    networks:
+      - name: elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -I --cacert config/certs/ca/ca.crt https://localhost:5601 | grep -q 'HTTP/1.1 302 Found'"]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+
+  # Add Fleet Server platform
   - name: fleet-server
     image: docker.elastic.co/beats/elastic-agent:8.15.2
     pre_build_image: true
@@ -32,6 +159,8 @@
       FLEET_SERVER_POLICY_ID: "fleet-server-policy"
       FLEET_SERVER_SERVICE_TOKEN: "${FLEET_SERVER_SERVICE_TOKEN:-}"
       FLEET_ENROLL: "1"
+      FLEET_URL: "https://fleet-server:8220"
+      FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
       KIBANA_FLEET_SETUP: "1"
       KIBANA_FLEET_HOST: "https://kibana:5601"
       KIBANA_FLEET_USERNAME: "elastic"
@@ -46,3 +175,63 @@
       interval: 10s
       timeout: 10s
       retries: 120
+
+  # Test instance for es-agent deployment
+  - name: instance
+    image: geerlingguy/docker-ubuntu2004-ansible
+    pre_build_image: true
+    privileged: true
+    packages:
+      - python3
+      - python3-pip
+      - curl
+      - ca-certificates
+    command: |
+      bash -c '
+        apt update 
+        apt install -y curl
+        sleep infinity
+      '
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro
+    networks:
+      - name: elastic
+    groups:
+      - elastic_agents
+    depends_on:
+      - elasticsearch
+      - kibana
+      - fleet-server
+    environment:
+      ELASTIC_PASSWORD: elastic
+      KIBANA_PASSWORD: elastic
+      FLEET_HOST: https://fleet-server:8220
+      ELASTICSEARCH_HOST: https://elasticsearch:9200
+      KIBANA_FLEET_HOST: https://kibana:5601
+      CA_CERT: /usr/share/elasticsearch/config/certs/ca/ca.crt
+
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ../../roles
+  inventory:
+    group_vars:
+      all:
+        elastic_password: elastic
+        kibana_password: elastic
+        fleet_host: https://fleet-server:8220
+        es_host: https://elasticsearch:9200
+        kibana_host: https://kibana:5601
+        ca_cert: /usr/share/elasticsearch/config/certs/ca/ca.crt
+
+verifier:
+  name: ansible
+
+scenario:
+  test_sequence:
+    - dependency
+    - destroy
+    - create
+    - prepare
+    # - converge  # Commented out as requested
