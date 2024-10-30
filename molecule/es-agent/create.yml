@@ -1,0 +1,106 @@
+---
+- name: Create certificates
+  hosts: localhost
+  gather_facts: false
+  vars:
+    certs_dir: /usr/share/elasticsearch/config/certs
+    setup_container_name: elastic-setup-molecule
+  tasks:
+    - name: Ensure jmespath is installed
+      pip:
+        name: jmespath
+        state: present
+      become: true
+
+    - name: Create docker network
+      docker_network:
+        name: elastic
+        driver: bridge
+        state: present
+      ignore_errors: yes
+
+    - name: Create certs volume
+      docker_volume:
+        name: certs
+        state: present
+
+    - name: Remove existing setup container if exists
+      docker_container:
+        name: "{{ setup_container_name }}"
+        state: absent
+        force_kill: yes
+
+    - name: Create elastic-setup container for certificate generation
+      docker_container:
+        name: "{{ setup_container_name }}"
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.15.2
+        state: started
+        hostname: elastic-setup
+        user: "0"
+        entrypoint: []
+        working_dir: /usr/share/elasticsearch
+        command: >-
+          bash -c '
+            source /usr/share/elasticsearch/pre-stack/.env
+            bash -x /usr/share/elasticsearch/pre-stack/elastic-stack-init.sh
+            touch /usr/share/elasticsearch/config/certs/setup.complete
+            sleep infinity
+          '
+        healthcheck:
+          test: ["CMD-SHELL", "test -f config/certs/elasticsearch/elasticsearch.crt && test -f config/certs/setup.complete"]
+          interval: 1s
+          timeout: 5s
+          retries: 120
+        volumes:
+          - "certs:{{ certs_dir }}"
+          - "/workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elasticsearch/pre-stack:ro"
+        networks:
+          - name: elastic
+      register: setup_container
+
+    - name: Wait for certificate files
+      command: >
+        docker exec {{ setup_container_name }}
+        test -f {{ certs_dir }}/elasticsearch/elasticsearch.crt
+        -a -f {{ certs_dir }}/setup.complete
+      register: cert_check
+      until: cert_check.rc == 0
+      retries: 120
+      delay: 1
+      changed_when: false
+
+    - name: Show container logs if certificate generation fails
+      command: docker logs {{ setup_container_name }}
+      register: container_logs
+      when: cert_check.rc != 0
+      changed_when: false
+
+    - name: Debug container logs on failure
+      debug:
+        var: container_logs.stdout_lines
+      when: cert_check.rc != 0
+
+    - name: List generated certificates
+      command: docker exec {{ setup_container_name }} ls -la {{ certs_dir }}/elasticsearch
+      register: cert_list
+      changed_when: false
+
+    - name: Display certificate listing
+      debug:
+        var: cert_list.stdout_lines
+
+    - name: Set proper permissions on certificates
+      command: docker exec {{ setup_container_name }} chmod -R 755 {{ certs_dir }}
+      when: cert_check.rc == 0
+
+    - name: Stop and remove certificate setup container
+      docker_container:
+        name: "{{ setup_container_name }}"
+        state: absent
+        force_kill: yes
+      when: cert_check.rc == 0
+
+    - name: Show certificate generation status
+      debug:
+        msg: "Certificates have been successfully generated and stored in the 'certs' volume"
+      when: cert_check.rc == 0

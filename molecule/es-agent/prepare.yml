@@ -6,7 +6,6 @@
 
 - name: Prepare test environment
   hosts: elastic_agents
-  become: true
   gather_facts: false
   tasks:
     - name: Wait for apt lock release
@@ -32,41 +31,19 @@
           - python3-pip
           - curl
           - ca-certificates
-          - lsof
-          - apt-transport-https
-          - gnupg-agent
-          - software-properties-common
         state: present
       register: apt_install
       retries: 5
       delay: 10
       until: apt_install is success
 
-    - name: Remove existing elastic network if exists
-      docker_network:
-        name: elastic
-        state: absent
-        force: yes
-      ignore_errors: yes
-
-    - name: Create elastic network
-      docker_network:
-        name: elastic
-        driver: bridge
-        state: present
-      register: network_result
-
-    - name: Debug network creation
-      debug:
-        var: network_result
-
     - name: Debug service info
       debug:
         msg: "Service {{ item.name }} info - URL: {{ item.url }}"
       loop:
         - name: "Elasticsearch"
-          url: "{{ lookup('env', 'ELASTICSEARCH_HOST') | default('https://elasticsearch:9200', true) }}"
+          url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}"
         - name: "Kibana"
-          url: "{{ lookup('env', 'KIBANA_FLEET_HOST') | default('https://kibana:5601', true) }}"
+          url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}"
         - name: "Fleet Server"
-          url: "{{ lookup('env', 'FLEET_HOST') | default('https://fleet-server:8220', true) }}"
+          url: "{{ lookup('env', 'FLEET_HOST') }}"
