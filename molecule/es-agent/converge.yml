@@ -2,21 +2,28 @@
 - name: Converge
   hosts: elastic_agents
   tasks:
+    - name: Ensure elastic network exists
+      docker_network:
+        name: elastic
+        driver: bridge
+        state: present
+      register: network_result
 
-    # Fleet Server container
+    - name: Debug network result
+      debug:
+        var: network_result
+        
     - name: Setup fleet-server
       docker_container:
         name: fleet-server
         image: docker.elastic.co/beats/elastic-agent:8.15.2
-        # pre_build_image: true
         hostname: fleet-server
         user: root
         command: elastic-agent container
         env:
-          TEST4: "fromplainenv"
           FLEET_SERVER_ENABLE: "1"
-          FLEET_SERVER_ELASTICSEARCH_HOST: https://elasticsearch:9200
-          FLEET_SERVER_ELASTICSEARCH_CA: /usr/share/elastic-agent/config/certs/ca/ca.crt
+          FLEET_SERVER_ELASTICSEARCH_HOST: "{{ lookup('env', 'ELASTICSEARCH_HOST') | default('https://elasticsearch:9200', true) }}"
+          FLEET_SERVER_ELASTICSEARCH_CA: "{{ lookup('env', 'CA_CERT') | default('/usr/share/elastic-agent/config/certs/ca/ca.crt', true) }}"
           FLEET_SERVER_CERT: /usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt
           FLEET_SERVER_CERT_KEY: /usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key
           FLEET_SERVER_HOST: 0.0.0.0
@@ -24,30 +31,28 @@
           FLEET_SERVER_POLICY_ID: fleet-server-policy
           FLEET_ENROLL: "1"
           ELASTICSEARCH_USERNAME: elastic
-          ELASTICSEARCH_PASSWORD: elastic
-          KIBANA_FLEET_HOST: https://kibana:5601
+          ELASTICSEARCH_PASSWORD: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('elastic', true) }}"
+          KIBANA_FLEET_HOST: "{{ lookup('env', 'KIBANA_FLEET_HOST') | default('https://kibana:5601', true) }}"
           KIBANA_FLEET_USERNAME: elastic
-          KIBANA_FLEET_PASSWORD: elastic
-          KIBANA_FLEET_CA: /usr/share/elastic-agent/config/certs/ca/ca.crt
-          FLEET_URL: https://fleet-server:8220      
+          KIBANA_FLEET_PASSWORD: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('elastic', true) }}"
+          KIBANA_FLEET_CA: "{{ lookup('env', 'CA_CERT') | default('/usr/share/elastic-agent/config/certs/ca/ca.crt', true) }}"
+          FLEET_URL: "{{ lookup('env', 'FLEET_HOST') | default('https://fleet-server:8220', true) }}"
         volumes:
           - certs:/usr/share/elastic-agent/config/certs:ro
           - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elastic-agent/pre-stack/es-agent:ro
         published_ports:
           - "8220:8220"
-        networks_cli_compatible: yes  
+        networks_cli_compatible: yes
         networks:
           - name: elastic
         state: started
-
-
 
     - name: Include es-agent role
       include_role:
         name: es-agent
       vars:
-        elastic_stack_version: "{{ lookup('env', 'STACK_VERSION') }}"
-        fleet_host: "{{ fleet_host }}"
-        elasticsearch_host: "{{ es_host }}"
-        elastic_password: "{{ elastic_password }}"
-        ca_cert: "{{ ca_cert }}"
+        elastic_stack_version: "{{ lookup('env', 'STACK_VERSION') | default('8.15.2', true) }}"
+        fleet_host: "{{ lookup('env', 'FLEET_HOST') | default('https://fleet-server:8220', true) }}"
+        elasticsearch_host: "{{ lookup('env', 'ELASTICSEARCH_HOST') | default('https://elasticsearch:9200', true) }}"
+        elastic_password: "{{ lookup('env', 'ELASTIC_PASSWORD') | default('elastic', true) }}"
+        ca_cert: "{{ lookup('env', 'CA_CERT') | default('/usr/share/elasticsearch/config/certs/ca/ca.crt', true) }}"
