@@ -155,29 +155,16 @@ platforms:
     pre_build_image: true
     hostname: fleet-server
     user: root
+    command: >-
+      elastic-agent container
+      --path.config /usr/share/elastic-agent/pre-stack/es-agent
+      --path.home /usr/share/elastic-agent
+      -c fleet-server.yml
+      -v
+      -e
     volumes:
       - certs:/usr/share/elastic-agent/config/certs:ro
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elastic-agent/pre-stack/es-agent:ro
-    command: >-
-      elastic-agent container
-      --path.home /usr/share/elastic-agent
-      -e
-      -v
-      --fleet-server.enable
-      --fleet-server.elasticsearch.host=https://elasticsearch:9200
-      --fleet-server.elasticsearch.username=elastic
-      --fleet-server.elasticsearch.password=elastic
-      --fleet-server.elasticsearch.ca=/usr/share/elastic-agent/config/certs/ca/ca.crt
-      --fleet-server.host=0.0.0.0
-      --fleet-server.port=8220
-      --fleet-server.cert=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt
-      --fleet-server.cert-key=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key
-      --fleet-server.policy-id=fleet-server-policy
-      --kibana.host=https://kibana:5601
-      --kibana.username=elastic
-      --kibana.password=elastic
-      --kibana.ca=/usr/share/elastic-agent/config/certs/ca/ca.crt
-      --fleet.enroll
     ports:
       - "8220:8220"
     networks:
