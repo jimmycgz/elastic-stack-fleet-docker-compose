@@ -158,37 +158,26 @@ platforms:
     volumes:
       - certs:/usr/share/elastic-agent/config/certs:ro
       - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent:/usr/share/elastic-agent/pre-stack/es-agent:ro
-    command: elastic-agent container
-    environment:
-      # Fleet Server Bootstrap Settings
-      - FLEET_SERVER_ENABLE=1
-      - FLEET_SERVER_ELASTICSEARCH_HOST=https://elasticsearch:9200
-      - FLEET_SERVER_ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-      - FLEET_SERVER_CERT=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt
-      - FLEET_SERVER_CERT_KEY=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key
-      - FLEET_SERVER_HOST=0.0.0.0
-      - FLEET_SERVER_PORT=8220
-      - FLEET_SERVER_POLICY_ID=fleet-server-policy
-
-      # Basic Authentication
-      - ELASTICSEARCH_USERNAME=elastic
-      - ELASTICSEARCH_PASSWORD=elastic
-      
-      # Kibana Configuration
-      - KIBANA_FLEET_HOST=https://kibana:5601
-      - KIBANA_FLEET_USERNAME=elastic
-      - KIBANA_FLEET_PASSWORD=elastic
-      - KIBANA_FLEET_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-      
-      # Common Settings
-      - KIBANA_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-      - ELASTICSEARCH_CA=/usr/share/elastic-agent/config/certs/ca/ca.crt
-
-      # Enable Fleet Enrollment (required when Fleet Server is enabled)
-      - FLEET_ENROLL=1
-      
-      # Debug if needed
-      - ELASTIC_AGENT_TAGS=fleet-server
+    command: >-
+      elastic-agent container
+      --path.home /usr/share/elastic-agent
+      -e
+      -v
+      --fleet-server.enable
+      --fleet-server.elasticsearch.host=https://elasticsearch:9200
+      --fleet-server.elasticsearch.username=elastic
+      --fleet-server.elasticsearch.password=elastic
+      --fleet-server.elasticsearch.ca=/usr/share/elastic-agent/config/certs/ca/ca.crt
+      --fleet-server.host=0.0.0.0
+      --fleet-server.port=8220
+      --fleet-server.cert=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt
+      --fleet-server.cert-key=/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key
+      --fleet-server.policy-id=fleet-server-policy
+      --kibana.host=https://kibana:5601
+      --kibana.username=elastic
+      --kibana.password=elastic
+      --kibana.ca=/usr/share/elastic-agent/config/certs/ca/ca.crt
+      --fleet.enroll
     ports:
       - "8220:8220"
     networks:
