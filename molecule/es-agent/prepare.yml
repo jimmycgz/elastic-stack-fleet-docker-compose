@@ -3,45 +3,93 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Wait for Certs generated from elastic-setup container
+      command: docker logs elastic-setup
+      register: setup_logs
+      until: "'Configuring kibana_system password...' in setup_logs.stdout"
+      retries: 30
+      delay: 10
+      changed_when: false
 
-    # - name: Wait for elastic-setup container to complete
-    #   command: docker logs elastic-setup
-    #   register: setup_logs
-    #   until: "'Setup completed successfully!' in setup_logs.stdout"
-    #   retries: 30
-    #   delay: 10
-    #   changed_when: false
+    - name: Display elastic-setup logs
+      debug:
+        msg: "{{ setup_logs.stdout_lines }}"
 
-    # - name: Check certificate files
-    #   command: "ls -la certs"
-    #   register: cert_files
-    #   changed_when: false
+    - name: Wait for certificates to be generated
+      command: docker exec elasticsearch ls -la /usr/share/elasticsearch/config/certs.ro/elasticsearch/elasticsearch.crt
+      register: cert_check
+      until: cert_check.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
 
-    # - name: Debug certificate files
-    #   debug:
-    #     msg: "Certificate files:\n{{ cert_files.stdout_lines }}"
+    - name: Wait for Elasticsearch to be ready
+      uri:
+        url: "https://localhost:9200/_cluster/health"
+        method: GET
+        user: elastic
+        password: elastic
+        force_basic_auth: true
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 401, 503]
+      register: result
+      until: >
+        result.status == 200 and
+        'status' in (result.content | from_json) and
+        ((result.content | from_json).status == 'green' or
+         (result.content | from_json).status == 'yellow')
+      retries: 30
+      delay: 10
 
-    # - name: Display elastic-setup logs on failure
-    #   when: setup_logs.failed is defined and setup_logs.failed
-    #   block:
-    #     - name: Get full elastic-setup logs
-    #       command: docker logs elastic-setup
-    #       register: full_logs
-    #       changed_when: false
+    - name: Display Elasticsearch health
+      debug:
+        msg: "Elasticsearch health: {{ result.content }}"
 
-    #     - name: Display full logs
-    #       debug:
-    #         msg: "Elastic setup logs:\n{{ full_logs.stdout_lines }}"
+    - name: Wait for Kibana to be ready
+      uri:
+        url: "https://localhost:5601/api/status"
+        method: GET
+        user: elastic
+        password: elastic
+        force_basic_auth: true
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 401, 503]
+      register: result
+      until: >
+        result.status == 200 and
+        'status' in (result.content | from_json) and
+        (result.content | from_json).status.overall.level == 'available'
+      retries: 30
+      delay: 10
 
-    #     - name: Fail with error message
-    #       fail:
-    #         msg: "Elastic setup container failed. Check the logs above for details."
+    - name: Display Kibana status
+      debug:
+        msg: "Kibana status: {{ result.content }}"
+
+    - name: Wait for Fleet Server to be ready
+      uri:
+        url: "https://localhost:8220/api/status"
+        method: GET
+        user: elastic
+        password: elastic
+        force_basic_auth: true
+        return_content: yes
+        validate_certs: no
+        status_code: [200, 404, 503]
+      register: result
+      until: result.status in [200, 404]
+      retries: 30
+      delay: 10
+
+    - name: Display Fleet Server status
+      debug:
+        msg: "Fleet Server status: {{ result }}"
 
 - name: Prepare test environment
   hosts: elastic_agents
   gather_facts: false
-  vars_files:
-    # - /workspaces/elastic-stack-fleet-docker-compose/pre-stack/es-agent/.env
   tasks:
     - name: Install required packages
       apt:
@@ -54,62 +102,10 @@
         update_cache: yes
       become: true
 
-    # - name: Wait for Elasticsearch to be ready
-    #   uri:
-    #     url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}/_cluster/health"
-    #     method: GET
-    #     user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
-    #     password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
-    #     force_basic_auth: true
-    #     return_content: yes
-    #     validate_certs: no
-    #     status_code: [200, 401, 503]
-    #   register: result
-    #   until: >
-    #     result.status == 200 and
-    #     'status' in (result.content | from_json) and
-    #     ((result.content | from_json).status == 'green' or
-    #      (result.content | from_json).status == 'yellow')
-    #   retries: 30
-    #   delay: 10
-
-    # - name: Wait for Kibana to be ready
-    #   uri:
-    #     url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}/api/status"
-    #     method: GET
-    #     user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
-    #     password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
-    #     force_basic_auth: true
-    #     return_content: yes
-    #     validate_certs: no
-    #     status_code: [200, 401, 503]
-    #   register: result
-    #   until: >
-    #     result.status == 200 and
-    #     'status' in (result.content | from_json) and
-    #     (result.content | from_json).status.overall.level == 'available'
-    #   retries: 30
-    #   delay: 10
-
-    # - name: Wait for Fleet Server to be ready
-    #   uri:
-    #     url: "{{ lookup('env', 'FLEET_HOST') }}/api/status"
-    #     method: GET
-    #     user: "{{ lookup('env', 'ELASTICSEARCH_USERNAME') }}"
-    #     password: "{{ lookup('env', 'ELASTIC_PASSWORD') }}"
-    #     force_basic_auth: true
-    #     return_content: yes
-    #     validate_certs: no
-    #     status_code: [200, 404, 503]
-    #   register: result
-    #   until: result.status in [200, 404]
-    #   retries: 30
-    #   delay: 10
-
     - name: Debug service info
       debug:
         msg: "Service {{ item.name }} info - URL: {{ item.url }}"
       loop:
-        - { name: "Elasticsearch", url: "{{ lookup('env', 'ELASTICSEARCH_HOST') }}" }
-        - { name: "Kibana", url: "{{ lookup('env', 'KIBANA_FLEET_HOST') }}" }
-        - { name: "Fleet Server", url: "{{ lookup('env', 'FLEET_HOST') }}" }
+        - { name: "Elasticsearch", url: "https://elasticsearch:9200" }
+        - { name: "Kibana", url: "https://kibana:5601" }
+        - { name: "Fleet Server", url: "https://fleet-server:8220" }
