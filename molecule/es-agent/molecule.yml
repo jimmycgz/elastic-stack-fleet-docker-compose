@@ -138,7 +138,7 @@ platforms:
       XPACK_FLEET_ENABLED: "true"
       XPACK_FLEET_AGENTS_ENABLED: "true"
       FLEET_SERVER_HOST: "${FLEET_HOST:-https://fleet-server:8220}"
-      XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS: '[\"https://fleet-server:8220\"]'
+      XPACK_FLEET_AGENTS_FLEET_SERVER_HOSTS[0]: "https://fleet-server:8220"
       KIBANA_FLEET_SETUP: "1"
       KIBANA_FLEET_HOST: "https://kibana:5601"
       KIBANA_FLEET_USERNAME: "kibana_system"
@@ -194,7 +194,7 @@ platforms:
       KIBANA_FLEET_SETUP: "1"
       KIBANA_FLEET_HOST: "https://kibana:5601"
       KIBANA_HOST: "https://kibana:5601"
-      KIBANA_FLEET_USERNAME: "kibana_system"
+      KIBANA_FLEET_USERNAME: "elastic"
       KIBANA_FLEET_PASSWORD: "${KIBANA_PASSWORD:-elastic}"
       KIBANA_FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
       ELASTICSEARCH_HOST: "https://elasticsearch:9200"
@@ -237,7 +237,30 @@ platforms:
       - kibana
       - fleet-server
     env:
-
+      FLEET_SERVER_ENABLE: "1"
+      FLEET_SERVER_ELASTICSEARCH_HOST: "https://elasticsearch:9200"
+      FLEET_SERVER_ELASTICSEARCH_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      FLEET_SERVER_CERT: "/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.crt"
+      FLEET_SERVER_CERT_KEY: "/usr/share/elastic-agent/config/certs/fleet-server/fleet-server.key"
+      FLEET_SERVER_HOST: "0.0.0.0"
+      FLEET_SERVER_PORT: "8220"
+      FLEET_SERVER_POLICY_ID: "fleet-server-policy"
+      FLEET_ENROLL: "1"
+      FLEET_URL: "https://fleet-server:8220"
+      FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      KIBANA_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      KIBANA_FLEET_SETUP: "1"
+      KIBANA_FLEET_HOST: "https://kibana:5601"
+      KIBANA_HOST: "https://kibana:5601"
+      KIBANA_FLEET_USERNAME: "kibana_system"
+      KIBANA_FLEET_PASSWORD: "${KIBANA_PASSWORD:-elastic}"
+      KIBANA_FLEET_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      ELASTICSEARCH_HOST: "https://elasticsearch:9200"
+      ELASTICSEARCH_USERNAME: "${ELASTICSEARCH_USERNAME:-elastic}"
+      ELASTICSEARCH_PASSWORD: "${ELASTIC_PASSWORD:-elastic}"
+      ELASTICSEARCH_CA: "/usr/share/elastic-agent/config/certs/ca/ca.crt"
+      KIBANA_REQUEST_RETRY_SLEEP: "5s"
+      KIBANA_REQUEST_RETRY_COUNT: "60"
 
 provisioner:
   name: ansible
