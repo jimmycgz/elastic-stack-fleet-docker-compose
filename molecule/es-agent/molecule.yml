@@ -164,8 +164,8 @@ platforms:
     hostname: fleet-server
     platform: linux/amd64
     container_name: fleet-server
-    restart_policy: "on-failure"
-    restart_retries: "3"
+    restart_policy: "always"
+    # restart_retries: "3"
     user: root
     command: elastic-agent container
     volumes:
