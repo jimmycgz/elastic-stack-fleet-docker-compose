@@ -1,8 +1,13 @@
 ---
-- name: Check if Elastic Agent is already installed
-  stat:
-    path: "/opt/Elastic/Agent/elastic-agent"
-  register: elastic_agent_binary
+- name: Check if Elastic Agent is installed (Ubuntu)
+  shell: elastic-agent version
+  register: agent_version_check
+  changed_when: false
+  failed_when: false
+
+- name: Set installation status
+  set_fact:
+    elastic_agent_installed: "{{ agent_version_check.rc == 0 }}"
 
 - name: Install Elastic Agent
   command:
@@ -14,10 +19,9 @@
       --non-interactive
       --force
   args:
-    chdir: "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
+    chdir: "{{ elastic_agent.install_dir }}"
   register: install_result
-  become: yes
-  when: not elastic_agent_binary.stat.exists
+  when: not elastic_agent_installed
 
 - name: Display installation result
   debug:
@@ -26,17 +30,4 @@
 - name: Check if installation was successful
   fail:
     msg: "Failed to install Elastic Agent"
-  when: install_result.rc is defined and install_result.rc != 0
-
-# - name: Clean up
-#   file:
-#     path: "{{ item }}"
-#     state: absent
-#   loop:
-#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64"
-#     - "/tmp/elastic-agent-{{ stack_version }}-linux-x86_64.tar.gz"
-#   become: yes
-
-# - name: Elastic Agent setup completed
-#   debug:
-#     msg: "Elastic Agent setup completed successfully"
+  when: not elastic_agent_installed and install_result.rc is defined and install_result.rc != 0

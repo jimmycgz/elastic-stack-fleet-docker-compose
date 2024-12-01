@@ -51,9 +51,9 @@
     name: 
       - curl
       - jq
+      - procps
     state: present
     update_cache: yes
-  become: yes
 
 - name: Fetch enrollment tokens
   uri:
@@ -131,11 +131,11 @@
   get_url:
     url: "{{ elastic_agent.download_url }}"
     dest: "{{ elastic_agent.archive_path }}"
-  become: yes
   register: elastic_agent_download
   until: elastic_agent_download is succeeded
   retries: 3
   delay: 5
+  when: not elastic_agent_installed | default(false)
 
 - name: Extract Elastic Agent
   unarchive:
@@ -143,4 +143,4 @@
     dest: "/tmp/"
     remote_src: yes
     creates: "{{ elastic_agent.install_dir }}"
-  become: yes
+  when: not elastic_agent_installed | default(false)
