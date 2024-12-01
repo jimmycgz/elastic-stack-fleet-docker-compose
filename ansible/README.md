@@ -10,62 +10,62 @@ This Ansible role automates the installation and configuration of Elastic Agent 
 - Downloads and installs the specified version of Elastic Agent
 - Configures the agent to connect to your Elastic Stack
 - Handles distribution-specific installation differences
+- Supports both API Key and Basic Auth authentication methods
 
 ## Requirements
 
 - Ansible 2.9 or higher
-- Target systems running Ubuntu or Debian
+- Docker containers running Ubuntu and Debian
 - Internet access on target systems for package installation and Elastic Agent download
 - Elastic Stack (Elasticsearch, Kibana, and Fleet) already set up and accessible
 
 ## Role Variables
 
-Edit `vars/main.yml` to configure the following variables:
+The following variables need to be set in the .env file in the pre-stack directory:
 
-```yaml
-kibana_fleet_host: "https://your-kibana-host:5601"
-fleet_host: "https://your-fleet-host:8220"
-elastic_password: "your_elastic_password"
-stack_version: "8.15.2"
-```
+- `AUTH_METHOD`: Set to 'api_key' or 'basic_auth' to specify the authentication method
+- `ELK_KIBANA_HOST`: The URL of your Kibana instance
+- `FLEET_HOST`: The URL of your Fleet server
+- `STACK_VERSION`: The version of the Elastic Stack you're using
+
+**Scenario A: When using API Key authentication**
+- `ELK_API_KEY`: The API key for authentication
+
+**Scenario B: When using Basic Auth authentication**
+- `ELK_USERNAME`: The username for Basic Auth
+- `ELK_PASSWORD`: The password for Basic Auth
 
 ## Usage
 
-0. Initial setup
-* Install Python packages (requirements.txt) at the root folder of ansible playbook:
-```
-pip install -r requirements.txt
-```
-If needed, install Ansible collections and roles:
-```
-ansible-galaxy install -r requirements.yml
-```
-
-1. Include this role in your playbook:
-
-   ```yaml
-   ---
-   - hosts: localhost
-     connection: local
-     collections:
-       - community.general
-     become: yes
-     roles:
-       - es-agent
+1. Ensure Docker containers are running:
+   ```
+   cd $HOME/projects/ansible/elastic-stack-fleet-docker-compose/pre-stack
+   docker-compose up -d
    ```
 
-2. Add inventory:
+2. Update the .env file in the pre-stack directory with the appropriate values for your setup, including the `AUTH_METHOD`.
 
+3. Source the .env file:
    ```
-   [servers]
-   localhost ansible_connection=local
+   source $HOME/projects/ansible/elastic-stack-fleet-docker-compose/pre-stack/.env
+   echo $AUTH_METHOD
    ```
 
-3. Run your playbook (-v to run in verbose mode):
+4. Run the Ansible playbook:
+   ```
+   cd $HOME/projects/ansible/elastic-stack-fleet-docker-compose/ansible
+   ansible-playbook -i inventory.yml playbook.yml \
+     -e "elk_kibana_host=$ELK_KIBANA_HOST" \
+     -e "fleet_host=$FLEET_HOST" \
+     -e "stack_version=$STACK_VERSION" \
+     -e "auth_method=$AUTH_METHOD" \
+     -e "elk_api_key=$ELK_API_KEY" \
+     -e "elk_username=$ELK_USERNAME" \
+     -e "elk_password=$ELK_PASSWORD" \
+     -v
+   ```
 
-   ```
-   ansible-playbook -i inventory.yml playbook.yml -v
-   ```
+   Note: You only need to include the variables relevant to your chosen authentication method (either `elk_api_key` or `elk_username` and `elk_password`).
 
 ## Role Structure
 
@@ -77,43 +77,28 @@ es-agent/
 │   ├── agent-setup-ubuntu.yml
 │   └── agent-setup-debian.yml
 ├── templates/
-│   └── elastic-agent.service.j2
 ├── vars/
 │   └── main.yml
 └── README.md
 ```
 
-- `main.yml`: Primary task file that orchestrates the installation process
-- `agent-setup-common.yml`: Common tasks to add ES agent to the fleet
-- `agent-setup-ubuntu.yml`: Ubuntu-specific setup tasks
-- `agent-setup-debian.yml`: Debian-specific setup tasks
-- `vars/main.yml`: Variable definitions for the role
-
-## How it Works
-
-1. The role first performs common tasks like installing dependencies and fetching enrollment tokens.
-2. It then detects the target system's distribution (Ubuntu or Debian) and includes the appropriate setup file.
-3. For Ubuntu, it uses the built-in `install` command of the Elastic Agent.
-4. For Debian, it goes manual `enroll` steps, including setting up a systemd service.
-
 ## Customization
 
-- Modify the variables in `vars/main.yml` to match your Elastic Stack setup.
 - For Debian installations, you can customize the systemd service by editing the installation tasks in `agent-setup-debian.yml`.
 
 ## Notes
 
 - This role uses the `--insecure` flag when installing the Elastic Agent. For production environments, proper SSL/TLS configuration is recommended.
 - Ensure that the target systems can reach the specified Kibana and Fleet hosts.
+- When using Basic Auth, make sure to use a secure method to pass the username and password, such as Ansible Vault for sensitive information.
 
 ## Troubleshooting
 
 - Check Ansible logs for any error messages during execution.
-- Verify that the provided URLs and credentials in `vars/main.yml` are correct.
+- Verify that the provided URLs and authentication credentials are correct in the .env file.
 - Ensure your Elastic Stack is properly set up and accessible from the target systems.
+- Make sure the Docker containers are running before executing the playbook.
 
-## [WIP] Testing
+## Testing
 
-This role was developed and tested via Ansible playook targeting a Docker Compose environment to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.
-
-Molecule configuration is still WIP.
+This role is tested using Docker containers to simulate Ubuntu and Debian systems. Refer to the included Docker Compose file for the test setup.

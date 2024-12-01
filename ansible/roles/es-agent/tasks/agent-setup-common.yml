@@ -12,37 +12,49 @@
 - name: Ensure required variables are set
   assert:
     that:
-      - kibana_fleet_host is defined
-      - elastic_password is defined
+      - elk_kibana_host is defined
       - fleet_host is defined
       - stack_version is defined
-    fail_msg: "One or more required variables are not set"
+      - auth_method is defined
+      - (auth_method == 'api_key' and elk_api_key is defined) or (auth_method == 'basic_auth' and elk_username is defined and elk_password is defined)
+    fail_msg: "One or more required variables are not set in the inventory file for the ELK stack"
 
 - name: Debug connection information
   debug:
     msg: 
-      - "Attempting to connect to Kibana at: {{ kibana_fleet_host }}"
+      - "Attempting to connect to Kibana at: {{ elk_kibana_host }}"
       - "Fleet host is set to: {{ fleet_host }}"
+      - "Authentication method: {{ auth_method }}"
 
-- name: Check Kibana connectivity
+- name: Check Kibana connectivity with API Key
   uri:
-    url: "{{ kibana_fleet_host }}/api/status"
+    url: "{{ elk_kibana_host }}/api/status"
     method: GET
     validate_certs: no
+    headers:
+      Authorization: "ApiKey {{ elk_api_key }}"
   register: kibana_status
   ignore_errors: yes
+  when: auth_method == 'api_key'
+
+- name: Check Kibana connectivity with Basic Auth
+  uri:
+    url: "{{ elk_kibana_host }}/api/status"
+    method: GET
+    validate_certs: no
+    url_username: "{{ elk_username }}"
+    url_password: "{{ elk_password }}"
+  register: kibana_status
+  ignore_errors: yes
+  when: auth_method == 'basic_auth'
 
 - name: Display Kibana connectivity result
   debug:
     var: kibana_status
 
-- name: Debug kibana_fleet_host
-  debug:
-    var: kibana_fleet_host
-
 - name: Fail if Kibana is not reachable
   fail:
-    msg: "Unable to connect to Kibana at {{ kibana_fleet_host }}. Please check the URL and ensure Kibana is running and accessible."
+    msg: "Unable to connect to Kibana at {{ elk_kibana_host }}. Please check the URL and ensure Kibana is running and accessible."
   when: kibana_status is failed
 
 # Common tasks
@@ -53,20 +65,35 @@
       - jq
     state: present
     update_cache: yes
-  become: yes
 
-- name: Fetch enrollment tokens
+- name: Fetch enrollment tokens from ELK stack with API Key
   uri:
-    url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
+    url: "{{ elk_kibana_host }}/api/fleet/enrollment-api-keys"
     method: GET
-    user: elastic
-    password: "{{ elastic_password }}"
-    force_basic_auth: yes
+    headers:
+      Authorization: "ApiKey {{ elk_api_key }}"
+      kbn-xsrf: "true"
     validate_certs: no
     return_content: yes
+  register: api_key_tokens
+  when: auth_method == 'api_key'
+
+- name: Fetch enrollment tokens from ELK stack with Basic Auth
+  uri:
+    url: "{{ elk_kibana_host }}/api/fleet/enrollment-api-keys"
+    method: GET
+    url_username: "{{ elk_username }}"
+    url_password: "{{ elk_password }}"
     headers:
       kbn-xsrf: "true"
-  register: enrollment_tokens
+    validate_certs: no
+    return_content: yes
+  register: basic_auth_tokens
+  when: auth_method == 'basic_auth'
+
+- name: Set enrollment tokens
+  set_fact:
+    enrollment_tokens: "{{ api_key_tokens if auth_method == 'api_key' else basic_auth_tokens }}"
 
 - name: Debug enrollment tokens response
   debug:
@@ -81,57 +108,19 @@
     agent_token: "{{ (enrollment_tokens.json.list | selectattr('policy_id', 'ne', 'fleet-server-policy') | map(attribute='api_key') | list)[0] | default('') }}"
   when: not agent_token
 
-- name: Create new policy if not found
-  block:
-    - name: Create new policy
-      uri:
-        url: "{{ kibana_fleet_host }}/api/fleet/agent_policies"
-        method: POST
-        user: elastic
-        password: "{{ elastic_password }}"
-        force_basic_auth: yes
-        validate_certs: no
-        body_format: json
-        body:
-          name: "Default Policy"
-          namespace: "default"
-          description: "Default policy created by Ansible"
-          monitoring_enabled: 
-            - "logs"
-            - "metrics"
-        headers:
-          kbn-xsrf: "true"
-      register: new_policy
-
-    - name: Create new enrollment token
-      uri:
-        url: "{{ kibana_fleet_host }}/api/fleet/enrollment-api-keys"
-        method: POST
-        user: elastic
-        password: "{{ elastic_password }}"
-        force_basic_auth: yes
-        validate_certs: no
-        body_format: json
-        body:
-          policy_id: "{{ new_policy.json.item.id }}"
-        headers:
-          kbn-xsrf: "true"
-      register: new_token
-
-    - name: Set agent token from new token
-      set_fact:
-        agent_token: "{{ new_token.json.item.api_key }}"
-  when: not agent_token
-
 - name: Display Agent Enrollment Token
   debug:
     var: agent_token
+
+- name: Fail if no enrollment token is found
+  fail:
+    msg: "No suitable enrollment token found in the ELK stack. Please ensure that at least one non-fleet-server policy exists in your Elastic Stack."
+  when: not agent_token
 
 - name: Download Elastic Agent
   get_url:
     url: "{{ elastic_agent.download_url }}"
     dest: "{{ elastic_agent.archive_path }}"
-  become: yes
   register: elastic_agent_download
   until: elastic_agent_download is succeeded
   retries: 3
@@ -143,4 +132,3 @@
     dest: "/tmp/"
     remote_src: yes
     creates: "{{ elastic_agent.install_dir }}"
-  become: yes
